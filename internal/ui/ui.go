@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -37,12 +38,14 @@ type Model struct {
 	State         AppState
 	List          list.Model
 	Spinner       spinner.Model
+	HelpViewport  viewport.Model
 	Width         int
 	Height        int
 	Err           error
 	Message       string
 	ShowMessage   bool
 	Quitting      bool
+	HelpReady     bool
 	
 	// Active sub-view (when navigated to a specific view)
 	ActiveSubView tea.Model
@@ -121,7 +124,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
-		m.List.SetSize(msg.Width-4, msg.Height-8)
+		// Give the list most of the vertical space, leaving room for title and help
+		listHeight := msg.Height - 8
+		if listHeight < 5 {
+			listHeight = 5 // Minimum height
+		}
+		m.List.SetSize(msg.Width-4, listHeight)
+		
+		// Update help viewport if in help state
+		if m.State == StateHelp && m.HelpReady {
+			m.HelpViewport.Width = msg.Width - 4
+			m.HelpViewport.Height = msg.Height - 6
+		}
+		
 		// Also update active sub-view if present
 		if m.ActiveSubView != nil {
 			var cmd tea.Cmd
@@ -145,9 +160,45 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.List, cmd = m.List.Update(msg)
 			return m, cmd
+		} else if m.State == StateHelp {
+			// Handle help screen navigation
+			switch msg.String() {
+			case "q", "esc":
+				m.State = StateMainMenu
+				m.HelpReady = false
+				return m, nil
+			case "ctrl+c":
+				m.Quitting = true
+				return m, tea.Quit
+			default:
+				// Let viewport handle scrolling keys
+				var cmd tea.Cmd
+				m.HelpViewport, cmd = m.HelpViewport.Update(msg)
+				return m, cmd
+			}
 		} else {
 			// Handle keys for other states
 			return m.handleKeyPress(msg)
+		}
+
+	case tea.MouseMsg:
+		// Pass mouse events to the list for scrolling in main menu
+		if m.State == StateMainMenu {
+			var cmd tea.Cmd
+			m.List, cmd = m.List.Update(msg)
+			return m, cmd
+		}
+		// Pass mouse events to help viewport
+		if m.State == StateHelp {
+			var cmd tea.Cmd
+			m.HelpViewport, cmd = m.HelpViewport.Update(msg)
+			return m, cmd
+		}
+		// Pass mouse events to active sub-view
+		if m.ActiveSubView != nil {
+			var cmd tea.Cmd
+			m.ActiveSubView, cmd = m.ActiveSubView.Update(msg)
+			return m, cmd
 		}
 
 	case spinner.TickMsg:
@@ -235,6 +286,10 @@ func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 		m.ShowMessage = true
 	case strings.HasPrefix(title, "6."):
 		m.State = StateHelp
+		// Initialize help viewport with content
+		m.HelpViewport = viewport.New(m.Width-4, m.Height-6)
+		m.HelpViewport.SetContent(m.getHelpContent())
+		m.HelpReady = true
 	case strings.HasPrefix(title, "7."):
 		m.Quitting = true
 		return m, tea.Quit
@@ -322,19 +377,18 @@ func (m Model) viewPlaceholder(title string) string {
 	return b.String()
 }
 
-// viewHelp renders the help screen
-func (m Model) viewHelp() string {
-	var b strings.Builder
+// getHelpContent returns the help text content
+func (m Model) getHelpContent() string {
+	return `Keyboard Shortcuts & Help
+========================
 
-	b.WriteString("\n")
-	b.WriteString(styles.RenderTitle("Keyboard Shortcuts & Help"))
-	b.WriteString("\n\n")
-
-	help := `Global Shortcuts:
+Global Shortcuts:
   q, esc       - Return to main menu / quit
   ctrl+c       - Force quit
-  ↑/↓, j/k     - Navigate lists
+  ↑/↓, j/k     - Navigate lists / scroll content
   enter        - Select / confirm
+  pgup/pgdn    - Page up / page down
+  home/end     - Jump to start / end
 
 Main Menu:
   1-7          - Quick access to menu items
@@ -345,18 +399,56 @@ Log Viewer:
   N            - Previous search result
   g            - Go to top
   G            - Go to bottom
+  tab          - Switch between viewing modes
+  e            - Export logs
 
 Backup Operations:
   ctrl+c       - Cancel running backup
   r            - Retry failed backup
 
-For more information, visit:
-https://github.com/andreisuslov/cloud-sync`
+LaunchAgent Manager:
+  l            - Load agent
+  u            - Unload agent
+  s            - Start agent
+  t            - Stop agent
+  r            - Remove agent
 
-	box := styles.RenderBox(help)
-	b.WriteString(box)
+Installation & Configuration:
+  Follow on-screen prompts
+  Tab to navigate between fields
+  Enter to confirm selections
+
+Tips:
+  - Use arrow keys or j/k to scroll in any view
+  - Mouse scrolling is supported throughout
+  - Press 'q' or 'esc' to return to previous screen
+  - All changes are saved automatically
+
+Project Information:
+  GitHub: https://github.com/andreisuslov/cloud-sync
+  Author: andreisuslov
+  
+For more information and documentation, visit the GitHub repository.`
+}
+
+// viewHelp renders the help screen with scrollable viewport
+func (m Model) viewHelp() string {
+	var b strings.Builder
+
+	b.WriteString("\n")
+	b.WriteString(styles.RenderTitle("Help & Documentation"))
 	b.WriteString("\n\n")
-	b.WriteString(styles.RenderHelp("q: Back to Main Menu"))
+	
+	if m.HelpReady {
+		b.WriteString(m.HelpViewport.View())
+		b.WriteString("\n\n")
+		
+		// Show scroll position indicator
+		scrollInfo := fmt.Sprintf("%.0f%%", m.HelpViewport.ScrollPercent()*100)
+		b.WriteString(styles.RenderMuted(fmt.Sprintf("Scroll: %s | ", scrollInfo)))
+	}
+	
+	b.WriteString(styles.RenderHelp("↑/↓, j/k: Scroll • q: Back to Main Menu"))
 
 	return b.String()
 }

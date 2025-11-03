@@ -18,7 +18,7 @@ func main() {
 	p := tea.NewProgram(
 		ui.NewModel(),
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
+		tea.WithMouseCellMotion(), // Enable mouse support for scrolling
 	)
 
 	// Run the program
