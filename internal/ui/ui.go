@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -74,12 +75,26 @@ func defaultKeyMap() keyMap {
 	}
 }
 
+// ShortHelp returns key bindings for the short help view
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Enter, k.Back, k.Quit}
+}
+
+// FullHelp returns key bindings for the full help view
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Enter},
+		{k.Back, k.Quit, k.Help},
+	}
+}
+
 // Model represents the main application model
 type Model struct {
 	State         AppState
 	List          list.Model
 	Spinner       spinner.Model
 	HelpViewport  viewport.Model
+	Help          help.Model
 	Keys          keyMap
 	Width         int
 	Height        int
@@ -148,10 +163,14 @@ func NewModel() Model {
 	s.Spinner = spinner.Dot
 	s.Style = styles.SpinnerStyle
 
+	h := help.New()
+	h.ShowAll = false
+
 	return Model{
 		State:   StateMainMenu,
 		List:    l,
 		Spinner: s,
+		Help:    h,
 		Keys:    defaultKeyMap(),
 	}
 }
@@ -389,7 +408,10 @@ func (m Model) viewMainMenu() string {
 	b.WriteString("\n")
 	b.WriteString(m.List.View())
 	b.WriteString("\n\n")
-	b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Quit"))
+	
+	// Render help using the help component
+	helpView := m.Help.View(m.Keys)
+	b.WriteString(helpView)
 
 	return b.String()
 }
