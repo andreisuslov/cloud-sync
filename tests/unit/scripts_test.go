@@ -216,7 +216,7 @@ func TestMakeExecutable(t *testing.T) {
 	assert.True(t, mode&0111 != 0, "File should be executable")
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestScriptsValidateConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    *scripts.Config

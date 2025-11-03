@@ -16,7 +16,7 @@ func createTestLogFile(t *testing.T, path string, content string) {
 	require.NoError(t, err)
 }
 
-func TestNewManager(t *testing.T) {
+func TestLogsNewManager(t *testing.T) {
 	logDir := "/tmp/logs"
 	manager := logs.NewManager(logDir)
 
@@ -24,7 +24,7 @@ func TestNewManager(t *testing.T) {
 	assert.Contains(t, manager.GetLogPath(), "rclone_backup.log")
 }
 
-func TestNewManagerWithPath(t *testing.T) {
+func TestLogsNewManagerWithPath(t *testing.T) {
 	logPath := "/custom/path/backup.log"
 	manager := logs.NewManagerWithPath(logPath)
 

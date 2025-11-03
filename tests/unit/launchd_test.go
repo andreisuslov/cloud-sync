@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewManager(t *testing.T) {
+func TestLaunchdNewManager(t *testing.T) {
 	username := "testuser"
 	manager := launchd.NewManager(username)
 
@@ -62,7 +62,6 @@ func TestGeneratePlist(t *testing.T) {
 	username := "testuser"
 
 	// Create a test manager with temp directory
-	homeDir, _ := os.UserHomeDir()
 	testAgentPath := filepath.Join(tmpDir, "LaunchAgents")
 	
 	manager := launchd.NewManager(username)
@@ -84,7 +83,7 @@ func TestGeneratePlist(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestLaunchdValidateConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    *launchd.Config

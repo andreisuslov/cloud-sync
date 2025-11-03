@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewManager(t *testing.T) {
+func TestRcloneNewManager(t *testing.T) {
 	rclonePath := "/usr/local/bin/rclone"
 	manager := rclone.NewManager(rclonePath)
 

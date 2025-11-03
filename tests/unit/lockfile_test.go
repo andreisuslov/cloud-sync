@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewManager(t *testing.T) {
+func TestLockfileNewManager(t *testing.T) {
 	logDir := "/tmp/logs"
 	manager := lockfile.NewManager(logDir)
 
@@ -19,7 +19,7 @@ func TestNewManager(t *testing.T) {
 	assert.Contains(t, manager.GetPath(), "rclone_backup.lock")
 }
 
-func TestNewManagerWithPath(t *testing.T) {
+func TestLockfileNewManagerWithPath(t *testing.T) {
 	lockfilePath := "/custom/path/backup.lock"
 	manager := lockfile.NewManagerWithPath(lockfilePath)
 
