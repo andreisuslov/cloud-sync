@@ -132,18 +132,18 @@ type Bucket struct {
 
 ---
 
-### Phase 4: Script Generation Module
+### Phase 4: Script Generation Module ✓
 **Module**: `internal/scripts`
 
 #### Features:
-- [ ] Generate `run_rclone_sync.sh` from template
-- [ ] Generate `monthly_backup.sh` from template
-- [ ] Generate `sync_now.sh` from template
-- [ ] Generate `show_transfers.sh` helper script
-- [ ] Customize scripts with user-specific paths
-- [ ] Customize scripts with bucket names
-- [ ] Automatically make scripts executable
-- [ ] Create required directories ($HOME/bin, $HOME/logs)
+- [x] Generate `run_rclone_sync.sh` from template
+- [x] Generate `monthly_backup.sh` from template
+- [x] Generate `sync_now.sh` from template
+- [x] Generate `show_transfers.sh` helper script
+- [x] Customize scripts with user-specific paths
+- [x] Customize scripts with bucket names
+- [x] Automatically make scripts executable
+- [x] Create required directories ($HOME/bin, $HOME/logs)
 
 #### Functions:
 ```go
