@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -9,8 +11,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/andreisuslov/cloud-sync/internal/launchd"
+	"github.com/andreisuslov/cloud-sync/internal/logs"
 	"github.com/andreisuslov/cloud-sync/internal/ui/models"
 	"github.com/andreisuslov/cloud-sync/internal/ui/styles"
+	"github.com/andreisuslov/cloud-sync/internal/ui/views"
 )
 
 // MenuItem represents a menu item
@@ -87,6 +92,12 @@ func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 		m.List.SetSize(msg.Width-4, msg.Height-8)
+		// Also update active sub-view if present
+		if m.ActiveSubView != nil {
+			var cmd tea.Cmd
+			m.ActiveSubView, cmd = m.ActiveSubView.Update(msg)
+			return m, cmd
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -95,6 +106,13 @@ func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.Spinner, cmd = m.Spinner.Update(msg)
+		return m, cmd
+	}
+
+	// Delegate to active sub-view if present
+	if m.ActiveSubView != nil && m.State != models.StateMainMenu {
+		var cmd tea.Cmd
+		m.ActiveSubView, cmd = m.ActiveSubView.Update(msg)
 		return m, cmd
 	}
 
@@ -111,6 +129,19 @@ func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKeyPress handles keyboard input
 func (m models.Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Let sub-views handle their own key presses first if they have special handling
+	if m.ActiveSubView != nil && m.State != models.StateMainMenu {
+		// Only intercept 'q' to go back, let sub-views handle everything else
+		if msg.String() == "q" || msg.String() == "esc" {
+			// Go back to main menu
+			m.State = models.StateMainMenu
+			m.ActiveSubView = nil
+			return m, nil
+		}
+		// Let the sub-view handle the key
+		return m, nil
+	}
+
 	switch msg.String() {
 	case "ctrl+c", "q":
 		if m.State == models.StateMainMenu {
@@ -119,6 +150,7 @@ func (m models.Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		// Go back to main menu from other states
 		m.State = models.StateMainMenu
+		m.ActiveSubView = nil
 		return m, nil
 
 	case "enter":
@@ -146,24 +178,33 @@ func (m models.Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 		m.ShowMessage = true
 	case strings.HasPrefix(menuItem.Title, "2."):
 		m.State = models.StateBackupRunning
-		m.Message = "Backup operations not yet implemented"
-		m.ShowMessage = true
+		// Initialize backup operations view
+		backupModel := views.NewBackupOpsModel(views.BackupManual, m.Width, m.Height)
+		m.ActiveSubView = backupModel
+		return m, backupModel.Init()
 	case strings.HasPrefix(menuItem.Title, "3."):
 		m.State = models.StateLogViewer
-		m.Message = "Log viewer not yet implemented"
-		m.ShowMessage = true
+		// Initialize log viewer
+		homeDir, _ := os.UserHomeDir()
+		logDir := filepath.Join(homeDir, "Documents", "rclone_logs")
+		logManager := logs.NewManager(logDir)
+		logModel := views.NewLogViewerModel(logManager, views.LogModeAll, m.Width, m.Height)
+		m.ActiveSubView = logModel
+		return m, logModel.Init()
 	case strings.HasPrefix(menuItem.Title, "4."):
 		m.State = models.StateLaunchdManager
-		m.Message = "LaunchAgent manager not yet implemented"
-		m.ShowMessage = true
+		// Initialize LaunchAgent manager
+		username := os.Getenv("USER")
+		launchdManager := launchd.NewManager(username)
+		launchdModel := views.NewLaunchdManagerModel(launchdManager, m.Width, m.Height)
+		m.ActiveSubView = launchdModel
+		return m, launchdModel.Init()
 	case strings.HasPrefix(menuItem.Title, "5."):
 		m.State = models.StateMaintenance
 		m.Message = "Maintenance tools not yet implemented"
 		m.ShowMessage = true
 	case strings.HasPrefix(menuItem.Title, "6."):
 		m.State = models.StateHelp
-		m.Message = "Help not yet implemented"
-		m.ShowMessage = true
 	case strings.HasPrefix(menuItem.Title, "7."):
 		m.Quitting = true
 		return m, tea.Quit
@@ -176,6 +217,11 @@ func (m models.Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 func (m models.Model) View() string {
 	if m.Quitting {
 		return styles.RenderInfo("\nThank you for using Cloud Sync!\n")
+	}
+
+	// If we have an active sub-view, render it
+	if m.ActiveSubView != nil && m.State != models.StateMainMenu {
+		return m.ActiveSubView.View()
 	}
 
 	var content string

@@ -67,6 +67,9 @@ type Model struct {
 	LogState          *LogViewerModel
 	LaunchdState      *LaunchdModel
 	MaintenanceState  *MaintenanceModel
+	
+	// Active sub-view (when navigated to a specific view)
+	ActiveSubView tea.Model
 }
 
 // InstallationModel represents the installation wizard state
