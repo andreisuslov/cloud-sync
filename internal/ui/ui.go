@@ -13,10 +13,40 @@ import (
 
 	"github.com/andreisuslov/cloud-sync/internal/launchd"
 	"github.com/andreisuslov/cloud-sync/internal/logs"
-	"github.com/andreisuslov/cloud-sync/internal/ui/models"
 	"github.com/andreisuslov/cloud-sync/internal/ui/styles"
 	"github.com/andreisuslov/cloud-sync/internal/ui/views"
 )
+
+// AppState represents the current state of the application
+type AppState int
+
+const (
+	StateMainMenu AppState = iota
+	StateInstallation
+	StateConfiguration
+	StateBackupRunning
+	StateLogViewer
+	StateLaunchdManager
+	StateMaintenance
+	StateHelp
+	StateExiting
+)
+
+// Model represents the main application model
+type Model struct {
+	State         AppState
+	List          list.Model
+	Spinner       spinner.Model
+	Width         int
+	Height        int
+	Err           error
+	Message       string
+	ShowMessage   bool
+	Quitting      bool
+	
+	// Active sub-view (when navigated to a specific view)
+	ActiveSubView tea.Model
+}
 
 // MenuItem represents a menu item
 type MenuItem struct {
@@ -30,7 +60,7 @@ func (i MenuItem) Title() string       { return i.title }
 func (i MenuItem) Description() string { return i.description }
 
 // NewModel creates a new application model
-func NewModel() models.Model {
+func NewModel() Model {
 	// Create menu items
 	items := []list.Item{
 		MenuItem{
@@ -73,20 +103,20 @@ func NewModel() models.Model {
 	s.Spinner = spinner.Dot
 	s.Style = styles.SpinnerStyle
 
-	return models.Model{
-		State:   models.StateMainMenu,
+	return Model{
+		State:   StateMainMenu,
 		List:    l,
 		Spinner: s,
 	}
 }
 
 // Init initializes the model
-func (m models.Model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return m.Spinner.Tick
 }
 
 // Update handles messages and updates the model
-func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
@@ -110,7 +140,7 @@ func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate to active sub-view if present
-	if m.ActiveSubView != nil && m.State != models.StateMainMenu {
+	if m.ActiveSubView != nil && m.State != StateMainMenu {
 		var cmd tea.Cmd
 		m.ActiveSubView, cmd = m.ActiveSubView.Update(msg)
 		return m, cmd
@@ -118,7 +148,7 @@ func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Update the appropriate sub-component based on state
 	switch m.State {
-	case models.StateMainMenu:
+	case StateMainMenu:
 		var cmd tea.Cmd
 		m.List, cmd = m.List.Update(msg)
 		return m, cmd
@@ -128,13 +158,13 @@ func (m models.Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKeyPress handles keyboard input
-func (m models.Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Let sub-views handle their own key presses first if they have special handling
-	if m.ActiveSubView != nil && m.State != models.StateMainMenu {
+	if m.ActiveSubView != nil && m.State != StateMainMenu {
 		// Only intercept 'q' to go back, let sub-views handle everything else
 		if msg.String() == "q" || msg.String() == "esc" {
 			// Go back to main menu
-			m.State = models.StateMainMenu
+			m.State = StateMainMenu
 			m.ActiveSubView = nil
 			return m, nil
 		}
@@ -144,17 +174,17 @@ func (m models.Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "ctrl+c", "q":
-		if m.State == models.StateMainMenu {
+		if m.State == StateMainMenu {
 			m.Quitting = true
 			return m, tea.Quit
 		}
 		// Go back to main menu from other states
-		m.State = models.StateMainMenu
+		m.State = StateMainMenu
 		m.ActiveSubView = nil
 		return m, nil
 
 	case "enter":
-		if m.State == models.StateMainMenu {
+		if m.State == StateMainMenu {
 			return m.handleMenuSelection()
 		}
 	}
@@ -163,49 +193,50 @@ func (m models.Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleMenuSelection handles menu item selection
-func (m models.Model) handleMenuSelection() (tea.Model, tea.Cmd) {
+func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 	selected := m.List.SelectedItem()
 	if selected == nil {
 		return m, nil
 	}
 
 	menuItem := selected.(MenuItem)
+	title := menuItem.Title()
 
 	switch {
-	case strings.HasPrefix(menuItem.Title, "1."):
-		m.State = models.StateInstallation
+	case strings.HasPrefix(title, "1."):
+		m.State = StateInstallation
 		m.Message = "Installation wizard not yet implemented"
 		m.ShowMessage = true
-	case strings.HasPrefix(menuItem.Title, "2."):
-		m.State = models.StateBackupRunning
+	case strings.HasPrefix(title, "2."):
+		m.State = StateBackupRunning
 		// Initialize backup operations view
 		backupModel := views.NewBackupOpsModel(views.BackupManual, m.Width, m.Height)
 		m.ActiveSubView = backupModel
 		return m, backupModel.Init()
-	case strings.HasPrefix(menuItem.Title, "3."):
-		m.State = models.StateLogViewer
+	case strings.HasPrefix(title, "3."):
+		m.State = StateLogViewer
 		// Initialize log viewer
 		homeDir, _ := os.UserHomeDir()
 		logDir := filepath.Join(homeDir, "Documents", "rclone_logs")
 		logManager := logs.NewManager(logDir)
-		logModel := views.NewLogViewerModel(logManager, views.LogModeAll, m.Width, m.Height)
+		logModel := views.NewLogViewerModel(logManager, views.LogViewAll, m.Width, m.Height)
 		m.ActiveSubView = logModel
 		return m, logModel.Init()
-	case strings.HasPrefix(menuItem.Title, "4."):
-		m.State = models.StateLaunchdManager
+	case strings.HasPrefix(title, "4."):
+		m.State = StateLaunchdManager
 		// Initialize LaunchAgent manager
 		username := os.Getenv("USER")
 		launchdManager := launchd.NewManager(username)
 		launchdModel := views.NewLaunchdManagerModel(launchdManager, m.Width, m.Height)
 		m.ActiveSubView = launchdModel
 		return m, launchdModel.Init()
-	case strings.HasPrefix(menuItem.Title, "5."):
-		m.State = models.StateMaintenance
+	case strings.HasPrefix(title, "5."):
+		m.State = StateMaintenance
 		m.Message = "Maintenance tools not yet implemented"
 		m.ShowMessage = true
-	case strings.HasPrefix(menuItem.Title, "6."):
-		m.State = models.StateHelp
-	case strings.HasPrefix(menuItem.Title, "7."):
+	case strings.HasPrefix(title, "6."):
+		m.State = StateHelp
+	case strings.HasPrefix(title, "7."):
 		m.Quitting = true
 		return m, tea.Quit
 	}
@@ -214,34 +245,34 @@ func (m models.Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 }
 
 // View renders the UI
-func (m models.Model) View() string {
+func (m Model) View() string {
 	if m.Quitting {
 		return styles.RenderInfo("\nThank you for using Cloud Sync!\n")
 	}
 
 	// If we have an active sub-view, render it
-	if m.ActiveSubView != nil && m.State != models.StateMainMenu {
+	if m.ActiveSubView != nil && m.State != StateMainMenu {
 		return m.ActiveSubView.View()
 	}
 
 	var content string
 
 	switch m.State {
-	case models.StateMainMenu:
+	case StateMainMenu:
 		content = m.viewMainMenu()
-	case models.StateInstallation:
+	case StateInstallation:
 		content = m.viewPlaceholder("Installation & Setup")
-	case models.StateConfiguration:
+	case StateConfiguration:
 		content = m.viewPlaceholder("Configuration")
-	case models.StateBackupRunning:
+	case StateBackupRunning:
 		content = m.viewPlaceholder("Backup Operations")
-	case models.StateLogViewer:
+	case StateLogViewer:
 		content = m.viewPlaceholder("Log Viewer")
-	case models.StateLaunchdManager:
+	case StateLaunchdManager:
 		content = m.viewPlaceholder("LaunchAgent Manager")
-	case models.StateMaintenance:
+	case StateMaintenance:
 		content = m.viewPlaceholder("Maintenance")
-	case models.StateHelp:
+	case StateHelp:
 		content = m.viewHelp()
 	default:
 		content = "Unknown state"
@@ -251,7 +282,7 @@ func (m models.Model) View() string {
 }
 
 // viewMainMenu renders the main menu
-func (m models.Model) viewMainMenu() string {
+func (m Model) viewMainMenu() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
@@ -263,7 +294,7 @@ func (m models.Model) viewMainMenu() string {
 }
 
 // viewPlaceholder renders a placeholder view for unimplemented features
-func (m models.Model) viewPlaceholder(title string) string {
+func (m Model) viewPlaceholder(title string) string {
 	var b strings.Builder
 
 	b.WriteString("\n")
@@ -293,7 +324,7 @@ func (m models.Model) viewPlaceholder(title string) string {
 }
 
 // viewHelp renders the help screen
-func (m models.Model) viewHelp() string {
+func (m Model) viewHelp() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
