@@ -72,9 +72,9 @@ func (i *Installer) InstallHomebrew() error {
 	installScript := `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 
 	cmd := i.executor.Command("bash", "-c", installScript)
-	cmd.(*exec.Cmd).Stdout = i.stdout
-	cmd.(*exec.Cmd).Stderr = i.stderr
-	cmd.(*exec.Cmd).Stdin = os.Stdin
+	cmd.Stdout = i.stdout
+	cmd.Stderr = i.stderr
+	cmd.Stdin = os.Stdin
 
 	if err := i.executor.RunCommand(cmd); err != nil {
 		return fmt.Errorf("failed to install homebrew: %w", err)
@@ -100,8 +100,8 @@ func (i *Installer) InstallRclone() error {
 	}
 
 	cmd := i.executor.Command("brew", "install", "rclone")
-	cmd.(*exec.Cmd).Stdout = i.stdout
-	cmd.(*exec.Cmd).Stderr = i.stderr
+	cmd.Stdout = i.stdout
+	cmd.Stderr = i.stderr
 
 	if err := i.executor.RunCommand(cmd); err != nil {
 		return fmt.Errorf("failed to install rclone: %w", err)
