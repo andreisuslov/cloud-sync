@@ -228,3 +228,41 @@ func (m *Manager) Sync(source, dest string, progress bool, dryRun bool) error {
 
 	return nil
 }
+
+// ValidateRemoteName validates a remote name
+func ValidateRemoteName(name string) error {
+	if name == "" {
+		return fmt.Errorf("remote name cannot be empty")
+	}
+	
+	// Check for invalid characters
+	for _, char := range name {
+		if !((char >= 'a' && char <= 'z') || 
+			 (char >= 'A' && char <= 'Z') || 
+			 (char >= '0' && char <= '9') || 
+			 char == '-' || char == '_') {
+			return fmt.Errorf("remote name contains invalid character: %c", char)
+		}
+	}
+	
+	return nil
+}
+
+// ValidateBucketName validates a bucket name
+func ValidateBucketName(name string) error {
+	if name == "" {
+		return fmt.Errorf("bucket name cannot be empty")
+	}
+	
+	// Check for uppercase (most cloud providers don't allow it)
+	for _, char := range name {
+		if char >= 'A' && char <= 'Z' {
+			return fmt.Errorf("bucket name cannot contain uppercase letters")
+		}
+		if char == ' ' {
+			return fmt.Errorf("bucket name cannot contain spaces")
+		}
+	}
+	
+	return nil
+}

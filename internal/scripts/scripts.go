@@ -134,7 +134,7 @@ func (g *Generator) generateScript(scriptName string, config *Config) error {
 }
 
 // MakeExecutable makes a script executable
-func MakeExecutable(filepath string) error {
+func (g *Generator) MakeExecutable(filepath string) error {
 	if err := os.Chmod(filepath, 0755); err != nil {
 		return fmt.Errorf("failed to make %s executable: %w", filepath, err)
 	}
