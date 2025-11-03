@@ -131,7 +131,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		return m.handleKeyPress(msg)
+		// Handle special keys that should be intercepted
+		if m.State == StateMainMenu {
+			// Check for quit or enter in main menu
+			switch msg.String() {
+			case "ctrl+c", "q":
+				m.Quitting = true
+				return m, tea.Quit
+			case "enter":
+				return m.handleMenuSelection()
+			}
+			// Let the list handle navigation keys (up, down, j, k, etc.)
+			var cmd tea.Cmd
+			m.List, cmd = m.List.Update(msg)
+			return m, cmd
+		} else {
+			// Handle keys for other states
+			return m.handleKeyPress(msg)
+		}
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -146,47 +163,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	// Update the appropriate sub-component based on state
-	switch m.State {
-	case StateMainMenu:
-		var cmd tea.Cmd
-		m.List, cmd = m.List.Update(msg)
-		return m, cmd
-	}
-
 	return m, nil
 }
 
-// handleKeyPress handles keyboard input
+// handleKeyPress handles keyboard input for non-main-menu states
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Let sub-views handle their own key presses first if they have special handling
-	if m.ActiveSubView != nil && m.State != StateMainMenu {
-		// Only intercept 'q' to go back, let sub-views handle everything else
-		if msg.String() == "q" || msg.String() == "esc" {
-			// Go back to main menu
-			m.State = StateMainMenu
-			m.ActiveSubView = nil
-			return m, nil
-		}
-		// Let the sub-view handle the key
-		return m, nil
-	}
-
-	switch msg.String() {
-	case "ctrl+c", "q":
-		if m.State == StateMainMenu {
-			m.Quitting = true
-			return m, tea.Quit
-		}
-		// Go back to main menu from other states
+	// Handle 'q' or 'esc' to go back to main menu
+	if msg.String() == "q" || msg.String() == "esc" {
 		m.State = StateMainMenu
 		m.ActiveSubView = nil
 		return m, nil
+	}
+	
+	// Handle ctrl+c to force quit
+	if msg.String() == "ctrl+c" {
+		m.Quitting = true
+		return m, tea.Quit
+	}
 
-	case "enter":
-		if m.State == StateMainMenu {
-			return m.handleMenuSelection()
-		}
+	// If we have an active sub-view, let it handle the key
+	if m.ActiveSubView != nil {
+		var cmd tea.Cmd
+		m.ActiveSubView, cmd = m.ActiveSubView.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
