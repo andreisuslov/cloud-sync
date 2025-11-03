@@ -7,8 +7,10 @@ import (
 
 	"github.com/andreisuslov/cloud-sync/internal/logs"
 	"github.com/andreisuslov/cloud-sync/internal/ui/styles"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // LogViewMode represents different log viewing modes
@@ -24,14 +26,15 @@ const (
 
 // LogViewerModel represents the log viewer model
 type LogViewerModel struct {
-	logManager *logs.Manager
-	mode       LogViewMode
-	viewport   viewport.Model
-	content    string
-	width      int
-	height     int
-	ready      bool
-	err        error
+	logManager    *logs.Manager
+	mode          LogViewMode
+	viewport      viewport.Model
+	sessionsTable table.Model
+	content       string
+	width         int
+	height        int
+	ready         bool
+	err           error
 }
 
 // NewLogViewerModel creates a new log viewer model
@@ -39,13 +42,40 @@ func NewLogViewerModel(logManager *logs.Manager, mode LogViewMode, width, height
 	vp := viewport.New(width-4, height-10)
 	vp.Style = styles.ViewportStyle
 
+	// Create sessions table
+	columns := []table.Column{
+		{Title: "Date/Time", Width: 20},
+		{Title: "Type", Width: 12},
+		{Title: "Status", Width: 10},
+		{Title: "Files", Width: 8},
+		{Title: "Duration", Width: 12},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithHeight(10),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
 	return LogViewerModel{
-		logManager: logManager,
-		mode:       mode,
-		viewport:   vp,
-		width:      width,
-		height:     height,
-		ready:      false,
+		logManager:    logManager,
+		mode:          mode,
+		viewport:      vp,
+		sessionsTable: t,
+		width:         width,
+		height:        height,
+		ready:         false,
 	}
 }
 
@@ -274,7 +304,7 @@ func (m LogViewerModel) renderRecentTransfers() tea.Msg {
 	return b.String()
 }
 
-// renderSessions renders sync sessions
+// renderSessions renders sync sessions using table
 func (m LogViewerModel) renderSessions() tea.Msg {
 	sessions, err := m.logManager.GetSyncSessions()
 	if err != nil {
@@ -285,16 +315,39 @@ func (m LogViewerModel) renderSessions() tea.Msg {
 		return "No sync sessions found."
 	}
 
+	// Build table rows
+	rows := []table.Row{}
+	for i := len(sessions) - 1; i >= 0; i-- {
+		session := sessions[i]
+		
+		dateTime := session.StartTime.Format("2006-01-02 15:04")
+		
+		status := "✗ Failed"
+		if session.Success {
+			status = "✓ Success"
+		}
+		
+		duration := "In progress"
+		if !session.EndTime.IsZero() {
+			d := session.EndTime.Sub(session.StartTime)
+			duration = formatDuration(d)
+		}
+		
+		rows = append(rows, table.Row{
+			dateTime,
+			session.Type,
+			status,
+			fmt.Sprintf("%d", session.Transfers),
+			duration,
+		})
+	}
+
+	m.sessionsTable.SetRows(rows)
+
 	var b strings.Builder
 	b.WriteString(styles.RenderInfo(fmt.Sprintf("Total sessions: %d", len(sessions))))
 	b.WriteString("\n\n")
-
-	// Render sessions in reverse order (newest first)
-	for i := len(sessions) - 1; i >= 0; i-- {
-		session := sessions[i]
-		b.WriteString(m.renderSession(session))
-		b.WriteString("\n")
-	}
+	b.WriteString(m.sessionsTable.View())
 
 	return b.String()
 }
