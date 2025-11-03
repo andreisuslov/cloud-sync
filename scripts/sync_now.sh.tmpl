@@ -1,0 +1,55 @@
+#!/bin/zsh
+
+# This script ALWAYS runs rclone sync by calling the engine.
+# It's for manual "top-off" backups.
+
+LOG_DIR="{{.LogDir}}"
+LOG_FILE="$LOG_DIR/rclone_backup.log"
+LOCKFILE="$LOG_DIR/rclone_backup.lock"
+
+# Ensure log directory exists
+mkdir -p "$LOG_DIR"
+
+# Check for lockfile to prevent simultaneous runs
+if [ -f "$LOCKFILE" ]; then
+    echo "ERROR: Another backup is already running (lockfile exists). Exiting." | tee -a "$LOG_FILE"
+    exit 1
+fi
+
+# Create lockfile
+touch "$LOCKFILE"
+
+# Ensure lockfile is removed on exit (success or failure)
+trap "rm -f $LOCKFILE" EXIT INT TERM
+
+# Mark the starting line number in the log file
+LOG_START_LINE=$(wc -l < "$LOG_FILE" 2>/dev/null || echo "0")
+
+echo "--- Manual Sync Requested: $(date) ---" | tee -a "$LOG_FILE"
+
+# Call the engine script with --progress flag for live updates
+# Use tee to show output on terminal AND append to log file
+{{.BinDir}}/run_rclone_sync.sh --progress 2>&1 | tee -a "$LOG_FILE"
+SYNC_EXIT_CODE=${pipestatus[1]}  # Get exit code from first command in pipe (zsh is 1-indexed)
+
+if [ $SYNC_EXIT_CODE -eq 0 ]; then
+    echo "--- Manual Sync Complete: Success ---" | tee -a "$LOG_FILE"
+    
+    # Show summary of files transferred in this run
+    echo "" | tee -a "$LOG_FILE"
+    echo "=== Files Transferred in This Sync ===" | tee -a "$LOG_FILE"
+    
+    # Get transfers from lines added since sync started
+    RECENT_TRANSFERS=$(tail -n +$((LOG_START_LINE + 1)) "$LOG_FILE" | grep "INFO.*Copied")
+    
+    if [ -n "$RECENT_TRANSFERS" ]; then
+        echo "$RECENT_TRANSFERS" | sed 's/^.*INFO  : /  - /' | sed 's/: Copied (/ [/' | sed 's/)$/]/' | tee -a "$LOG_FILE"
+        TRANSFER_COUNT=$(echo "$RECENT_TRANSFERS" | wc -l | tr -d ' ')
+        echo "Total: $TRANSFER_COUNT file(s)" | tee -a "$LOG_FILE"
+    else
+        echo "  No files transferred (everything up to date)" | tee -a "$LOG_FILE"
+    fi
+else
+    echo "--- Manual Sync Complete: Failed (exit code: $SYNC_EXIT_CODE) ---" | tee -a "$LOG_FILE"
+    exit $SYNC_EXIT_CODE
+fi

@@ -1,0 +1,29 @@
+#!/bin/zsh
+
+# This is the "engine" script. It only runs rclone.
+# Pass --progress as first argument to enable -P flag for manual runs.
+
+LOG_FILE="{{.LogDir}}/rclone_backup.log"
+
+# Build rclone command
+RCLONE_CMD="{{.RclonePath}} sync {{.SourceRemote}}:{{.SourceBucket}} {{.DestRemote}}:{{.DestBucket}}"
+RCLONE_CMD="$RCLONE_CMD --fast-list"
+RCLONE_CMD="$RCLONE_CMD --config {{.HomeDir}}/.config/rclone/rclone.conf"
+RCLONE_CMD="$RCLONE_CMD -v"
+
+# For manual runs: show progress on terminal, caller handles logging via tee
+# For automated runs: write directly to log file, no progress
+if [[ "$1" == "--progress" ]]; then
+    RCLONE_CMD="$RCLONE_CMD -P"
+    # Don't use --log-file, output goes to stdout/stderr for tee to capture
+else
+    # Automated run: write directly to log file
+    RCLONE_CMD="$RCLONE_CMD --log-file $LOG_FILE"
+fi
+
+# Execute rclone and capture its exit code
+eval $RCLONE_CMD
+RCLONE_EXIT_CODE=$?
+
+# Return rclone's exit code to the calling script
+exit $RCLONE_EXIT_CODE

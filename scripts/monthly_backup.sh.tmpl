@@ -1,0 +1,50 @@
+#!/bin/zsh
+
+# --- Configuration ---
+LOG_DIR="{{.LogDir}}"
+TIMESTAMP_FILE="$LOG_DIR/rclone_last_run_timestamp"
+LOG_FILE="$LOG_DIR/rclone_backup.log"
+LOCKFILE="$LOG_DIR/rclone_backup.lock"
+
+# --- Script Logic ---
+mkdir -p "$LOG_DIR"
+touch "$TIMESTAMP_FILE"
+
+# Check for lockfile to prevent simultaneous runs
+if [ -f "$LOCKFILE" ]; then
+    echo "--- Automated Check Started: $(date) ---" >> "$LOG_FILE"
+    echo "ERROR: Another backup is already running (lockfile exists). Exiting." >> "$LOG_FILE"
+    echo "--- Automated Check Finished: $(date) ---" >> "$LOG_FILE"
+    exit 1
+fi
+
+# Create lockfile
+touch "$LOCKFILE"
+
+# Ensure lockfile is removed on exit (success or failure)
+trap "rm -f $LOCKFILE" EXIT INT TERM
+
+CURRENT_MONTH=$(date +%Y-%m)
+LAST_RUN_MONTH=$(cat "$TIMESTAMP_FILE")
+
+echo "--- Automated Check Started: $(date) ---" >> "$LOG_FILE"
+
+if [ "$CURRENT_MONTH" = "$LAST_RUN_MONTH" ]; then
+    echo "Backup for $CURRENT_MONTH has already run. Skipping." >> "$LOG_FILE"
+else
+    echo "Starting monthly backup for $CURRENT_MONTH..." >> "$LOG_FILE"
+    
+    # Call the engine script (without --progress for automated runs)
+    {{.BinDir}}/run_rclone_sync.sh
+    SYNC_EXIT_CODE=$?
+    
+    # Check if the engine was successful
+    if [ $SYNC_EXIT_CODE -eq 0 ]; then
+        echo "Backup successful." >> "$LOG_FILE"
+        echo "$CURRENT_MONTH" > "$TIMESTAMP_FILE"
+    else
+        echo "ERROR: Rclone sync failed. Check log above." >> "$LOG_FILE"
+    fi
+fi
+
+echo "--- Automated Check Finished: $(date) ---" >> "$LOG_FILE"

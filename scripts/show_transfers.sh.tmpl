@@ -1,0 +1,29 @@
+#!/bin/zsh
+
+# Helper script to view transfer history from logs
+
+LOG_FILE="{{.LogDir}}/rclone_backup.log"
+
+if [ ! -f "$LOG_FILE" ]; then
+    echo "No log file found at $LOG_FILE"
+    exit 1
+fi
+
+# Parse command argument
+ARG="${1:-all}"
+
+case "$ARG" in
+    today)
+        echo "=== Today's Transfers ==="
+        TODAY=$(date +%Y/%m/%d)
+        grep "$TODAY" "$LOG_FILE" | grep "INFO.*Copied" | sed 's/^.*INFO  : /  - /' | sed 's/: Copied (/ [/' | sed 's/)$/]/'
+        ;;
+    [0-9]*)
+        echo "=== Last $ARG Transfers ==="
+        grep "INFO.*Copied" "$LOG_FILE" | tail -n "$ARG" | sed 's/^.*INFO  : /  - /' | sed 's/: Copied (/ [/' | sed 's/)$/]/'
+        ;;
+    all|*)
+        echo "=== All Transfers ==="
+        grep "INFO.*Copied" "$LOG_FILE" | sed 's/^.*INFO  : /  - /' | sed 's/: Copied (/ [/' | sed 's/)$/]/'
+        ;;
+esac
