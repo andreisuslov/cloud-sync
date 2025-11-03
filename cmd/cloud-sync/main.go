@@ -5,7 +5,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/andreisuslovcloud-sync/internal/ui"
+	"github.com/andreisuslov/cloud-sync/internal/ui"
 )
 
 var (
