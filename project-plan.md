@@ -320,16 +320,16 @@ type SyncStats struct {
 
 ---
 
-### Phase 8: Bubbletea UI - Main Menu
+### Phase 8: Bubbletea UI - Main Menu ⚠️ (In Progress)
 **Module**: `internal/ui`
 
 #### Features:
 - [ ] Welcome screen
-- [ ] Main menu with navigation
+- [x] Main menu with navigation (basic)
 - [ ] Installation wizard
 - [ ] Configuration wizard
 - [ ] Status dashboard
-- [ ] Keyboard shortcuts help
+- [x] Keyboard shortcuts help (basic)
 
 #### Menu Items:
 1. **Installation & Setup**
