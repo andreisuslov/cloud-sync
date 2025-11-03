@@ -6,7 +6,9 @@ import (
 
 	"github.com/andreisuslov/cloud-sync/internal/launchd"
 	"github.com/andreisuslov/cloud-sync/internal/ui/styles"
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // LaunchdAction represents an action that can be performed on a LaunchAgent
@@ -25,6 +27,7 @@ const (
 type LaunchdManagerModel struct {
 	launchdManager *launchd.Manager
 	status         *launchd.Status
+	statusTable    table.Model
 	width          int
 	height         int
 	err            error
@@ -36,8 +39,31 @@ type LaunchdManagerModel struct {
 
 // NewLaunchdManagerModel creates a new LaunchAgent manager model
 func NewLaunchdManagerModel(launchdManager *launchd.Manager, width, height int) LaunchdManagerModel {
+	columns := []table.Column{
+		{Title: "Property", Width: 20},
+		{Title: "Value", Width: 40},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithHeight(5),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
 	return LaunchdManagerModel{
 		launchdManager: launchdManager,
+		statusTable:    t,
 		width:          width,
 		height:         height,
 		selectedAction: 0,
@@ -94,6 +120,7 @@ func (m LaunchdManagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.status = msg
 		m.processing = false
 		m.err = nil
+		m.updateStatusTable()
 		return m, nil
 
 	case ActionResult:
@@ -191,54 +218,59 @@ func (m LaunchdManagerModel) View() string {
 	return b.String()
 }
 
-// renderStatus renders the LaunchAgent status
+// renderStatus renders the LaunchAgent status using table
 func (m LaunchdManagerModel) renderStatus() string {
 	var b strings.Builder
 
 	b.WriteString(styles.RenderSubtitle("Current Status:"))
 	b.WriteString("\n\n")
 
-	// Loaded status
-	loadedIcon := "✗"
-	loadedColor := styles.RenderError
-	loadedText := "Not Loaded"
-	if m.status.Loaded {
-		loadedIcon = "✓"
-		loadedColor = styles.RenderSuccess
-		loadedText = "Loaded"
+	// Display the table
+	b.WriteString(m.statusTable.View())
+	b.WriteString("\n\n")
+
+	// Plist file location
+	b.WriteString(fmt.Sprintf("Plist: %s\n", 
+		styles.RenderMuted(m.launchdManager.GetPlistPath())))
+
+	return b.String()
+}
+
+// updateStatusTable populates the table with current status
+func (m *LaunchdManagerModel) updateStatusTable() {
+	if m.status == nil {
+		return
 	}
-	b.WriteString(fmt.Sprintf("  Loaded:     %s %s\n", loadedIcon, loadedColor(loadedText)))
+
+	rows := []table.Row{}
+
+	// Loaded status
+	loadedValue := "✗ Not Loaded"
+	if m.status.Loaded {
+		loadedValue = "✓ Loaded"
+	}
+	rows = append(rows, table.Row{"Loaded", loadedValue})
 
 	// Running status
-	runningIcon := "✗"
-	runningColor := styles.RenderMuted
-	runningText := "Not Running"
+	runningValue := "✗ Not Running"
 	if m.status.Running {
-		runningIcon = "✓"
-		runningColor = styles.RenderSuccess
-		runningText = "Running"
+		runningValue = "✓ Running"
 	}
-	b.WriteString(fmt.Sprintf("  Running:    %s %s\n", runningIcon, runningColor(runningText)))
+	rows = append(rows, table.Row{"Running", runningValue})
 
 	// PID
 	if m.status.Running && m.status.PID > 0 {
-		b.WriteString(fmt.Sprintf("  PID:        %s\n", styles.RenderInfo(fmt.Sprintf("%d", m.status.PID))))
+		rows = append(rows, table.Row{"PID", fmt.Sprintf("%d", m.status.PID)})
 	}
 
 	// Last exit status
 	if m.status.LastExit != 0 {
-		b.WriteString(fmt.Sprintf("  Last Exit:  %s\n", 
-			styles.RenderWarning(fmt.Sprintf("%d (error)", m.status.LastExit))))
+		rows = append(rows, table.Row{"Last Exit", fmt.Sprintf("%d (error)", m.status.LastExit)})
 	} else if m.status.Loaded {
-		b.WriteString(fmt.Sprintf("  Last Exit:  %s\n", 
-			styles.RenderSuccess("0 (success)")))
+		rows = append(rows, table.Row{"Last Exit", "0 (success)"})
 	}
 
-	// Plist file location
-	b.WriteString(fmt.Sprintf("\n  Plist:      %s\n", 
-		styles.RenderMuted(m.launchdManager.GetPlistPath())))
-
-	return b.String()
+	m.statusTable.SetRows(rows)
 }
 
 // refreshStatus returns a command to refresh the LaunchAgent status
