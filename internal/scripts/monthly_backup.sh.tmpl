@@ -1,0 +1,57 @@
+#!/bin/zsh
+#
+# Automated Script: monthly_backup.sh
+# Monthly check with deduplication
+#
+
+LOCKFILE="{{.LogDir}}/rclone_backup.lock"
+TIMESTAMP_FILE="{{.LogDir}}/rclone_last_run_timestamp"
+LOG_FILE="{{.LogDir}}/rclone_backup.log"
+ENGINE_SCRIPT="{{.BinDir}}/run_rclone_sync.sh"
+
+# Check for lockfile
+if [ -f "$LOCKFILE" ]; then
+    echo "$(date '+%Y/%m/%d %H:%M:%S') WARN  : Lockfile exists, backup already running" >> "$LOG_FILE"
+    exit 1
+fi
+
+# Create lockfile
+touch "$LOCKFILE"
+
+# Log start
+echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Automated Check Started" >> "$LOG_FILE"
+
+# Check if we need to run (monthly)
+CURRENT_MONTH=$(date '+%Y-%m')
+LAST_RUN=""
+
+if [ -f "$TIMESTAMP_FILE" ]; then
+    LAST_RUN=$(cat "$TIMESTAMP_FILE")
+fi
+
+if [ "$LAST_RUN" = "$CURRENT_MONTH" ]; then
+    echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Backup already run this month, skipping" >> "$LOG_FILE"
+    rm -f "$LOCKFILE"
+    exit 0
+fi
+
+# Run the engine script
+if [ -x "$ENGINE_SCRIPT" ]; then
+    "$ENGINE_SCRIPT"
+    EXIT_CODE=$?
+    
+    if [ $EXIT_CODE -eq 0 ]; then
+        echo "$CURRENT_MONTH" > "$TIMESTAMP_FILE"
+        echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Backup successful, timestamp updated" >> "$LOG_FILE"
+    else
+        echo "$(date '+%Y/%m/%d %H:%M:%S') ERROR : Backup failed with exit code $EXIT_CODE" >> "$LOG_FILE"
+    fi
+else
+    echo "$(date '+%Y/%m/%d %H:%M:%S') ERROR : Engine script not found or not executable" >> "$LOG_FILE"
+    EXIT_CODE=1
+fi
+
+# Remove lockfile
+rm -f "$LOCKFILE"
+
+exit $EXIT_CODE

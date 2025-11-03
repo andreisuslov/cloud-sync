@@ -1,0 +1,33 @@
+#!/bin/zsh
+#
+# Engine Script: run_rclone_sync.sh
+# Core rclone execution script
+#
+
+RCLONE_PATH="{{.RclonePath}}"
+SOURCE_REMOTE="{{.SourceRemote}}"
+SOURCE_BUCKET="{{.SourceBucket}}"
+DEST_REMOTE="{{.DestRemote}}"
+DEST_BUCKET="{{.DestBucket}}"
+LOG_FILE="{{.LogDir}}/rclone_backup.log"
+
+# Run rclone sync
+echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Starting rclone sync" >> "$LOG_FILE"
+
+"$RCLONE_PATH" sync \
+    "${SOURCE_REMOTE}:${SOURCE_BUCKET}" \
+    "${DEST_REMOTE}:${DEST_BUCKET}" \
+    --fast-list \
+    --transfers 8 \
+    -v \
+    >> "$LOG_FILE" 2>&1
+
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Sync completed successfully" >> "$LOG_FILE"
+else
+    echo "$(date '+%Y/%m/%d %H:%M:%S') ERROR : Rclone sync failed with exit code $EXIT_CODE" >> "$LOG_FILE"
+fi
+
+exit $EXIT_CODE

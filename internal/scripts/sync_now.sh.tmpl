@@ -1,0 +1,56 @@
+#!/bin/zsh
+#
+# Manual Script: sync_now.sh
+# On-demand sync with progress
+#
+
+LOCKFILE="{{.LogDir}}/rclone_backup.lock"
+LOG_FILE="{{.LogDir}}/rclone_backup.log"
+ENGINE_SCRIPT="{{.BinDir}}/run_rclone_sync.sh"
+
+echo "==================================="
+echo "   Cloud Backup - Manual Sync"
+echo "==================================="
+echo
+
+# Check for lockfile
+if [ -f "$LOCKFILE" ]; then
+    echo "ERROR: Backup already running (lockfile exists)"
+    echo "If you're sure no backup is running, remove: $LOCKFILE"
+    exit 1
+fi
+
+# Create lockfile
+touch "$LOCKFILE"
+
+# Log start
+echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Manual Sync Requested" >> "$LOG_FILE"
+echo "Starting backup..."
+echo
+
+# Run the engine script
+if [ -x "$ENGINE_SCRIPT" ]; then
+    "$ENGINE_SCRIPT"
+    EXIT_CODE=$?
+    
+    echo
+    if [ $EXIT_CODE -eq 0 ]; then
+        echo "✓ Manual Sync Complete: Success"
+        echo "$(date '+%Y/%m/%d %H:%M:%S') INFO  : Manual Sync Complete: Success" >> "$LOG_FILE"
+    else
+        echo "✗ Manual Sync Complete: Failed (exit code $EXIT_CODE)"
+        echo "$(date '+%Y/%m/%d %H:%M:%S') ERROR : Manual Sync Complete: Failed" >> "$LOG_FILE"
+    fi
+else
+    echo "✗ ERROR: Engine script not found or not executable"
+    echo "$(date '+%Y/%m/%d %H:%M:%S') ERROR : Engine script not found" >> "$LOG_FILE"
+    EXIT_CODE=1
+fi
+
+# Remove lockfile
+rm -f "$LOCKFILE"
+
+echo
+echo "Check logs at: $LOG_FILE"
+
+exit $EXIT_CODE

@@ -1,0 +1,28 @@
+#!/bin/zsh
+#
+# Helper Script: show_transfers.sh
+# Display recent transfers from log
+#
+
+LOG_FILE="{{.LogDir}}/rclone_backup.log"
+
+echo "==================================="
+echo "   Recent Backup Transfers"
+echo "==================================="
+echo
+
+if [ ! -f "$LOG_FILE" ]; then
+    echo "No log file found at: $LOG_FILE"
+    exit 1
+fi
+
+# Show today's transfers
+TODAY=$(date '+%Y/%m/%d')
+echo "Transfers from today ($TODAY):"
+echo
+
+grep "$TODAY" "$LOG_FILE" | grep "INFO  :" | grep "Copied" | tail -20
+
+echo
+echo "-----------------------------------"
+echo "Full log: $LOG_FILE"
