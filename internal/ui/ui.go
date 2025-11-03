@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -33,12 +34,53 @@ const (
 	StateExiting
 )
 
+// keyMap defines key bindings for the application
+type keyMap struct {
+	Up     key.Binding
+	Down   key.Binding
+	Enter  key.Binding
+	Back   key.Binding
+	Quit   key.Binding
+	Help   key.Binding
+}
+
+// defaultKeyMap returns the default key bindings
+func defaultKeyMap() keyMap {
+	return keyMap{
+		Up: key.NewBinding(
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "move up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "move down"),
+		),
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "select"),
+		),
+		Back: key.NewBinding(
+			key.WithKeys("esc", "q"),
+			key.WithHelp("esc/q", "back"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("ctrl+c", "quit"),
+		),
+		Help: key.NewBinding(
+			key.WithKeys("?"),
+			key.WithHelp("?", "toggle help"),
+		),
+	}
+}
+
 // Model represents the main application model
 type Model struct {
 	State         AppState
 	List          list.Model
 	Spinner       spinner.Model
 	HelpViewport  viewport.Model
+	Keys          keyMap
 	Width         int
 	Height        int
 	Err           error
@@ -110,6 +152,7 @@ func NewModel() Model {
 		State:   StateMainMenu,
 		List:    l,
 		Spinner: s,
+		Keys:    defaultKeyMap(),
 	}
 }
 
@@ -148,12 +191,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Handle special keys that should be intercepted
 		if m.State == StateMainMenu {
-			// Check for quit or enter in main menu
-			switch msg.String() {
-			case "ctrl+c", "q":
+			// Check for quit or enter in main menu using key bindings
+			if key.Matches(msg, m.Keys.Quit) {
 				m.Quitting = true
 				return m, tea.Quit
-			case "enter":
+			}
+			if key.Matches(msg, m.Keys.Back) && msg.String() == "q" {
+				m.Quitting = true
+				return m, tea.Quit
+			}
+			if key.Matches(msg, m.Keys.Enter) {
 				return m.handleMenuSelection()
 			}
 			// Let the list handle navigation keys (up, down, j, k, etc.)
