@@ -20,7 +20,7 @@ const (
 	StepInstallHomebrew
 	StepCheckRclone
 	StepInstallRclone
-	StepComplete
+	InstallStepComplete
 )
 
 // InstallationModel represents the installation wizard state
@@ -168,7 +168,7 @@ func (m InstallationModel) renderCurrentStep() string {
 		} else {
 			content = fmt.Sprintf("%s Installing rclone...", m.spinner.View())
 		}
-	case StepComplete:
+	case InstallStepComplete:
 		content = styles.RenderSuccess("✓ All tools installed successfully!")
 	}
 
@@ -224,7 +224,7 @@ func (m InstallationModel) handleCheckResult(msg checkResult) (InstallationModel
 	case "rclone":
 		m.rcloneOK = msg.installed
 		if msg.installed {
-			m.currentStep = StepComplete
+			m.currentStep = InstallStepComplete
 			m.complete = true
 			return m, nil
 		} else {
@@ -254,7 +254,7 @@ func (m InstallationModel) handleInstallResult(msg installResult) (InstallationM
 
 	case "rclone":
 		m.rcloneOK = true
-		m.currentStep = StepComplete
+		m.currentStep = InstallStepComplete
 		m.complete = true
 		return m, nil
 	}

@@ -20,46 +20,46 @@ import (
 
 // MenuItem represents a menu item
 type MenuItem struct {
-	Title       string
-	Description string
+	title       string
+	description string
 }
 
-func (i MenuItem) FilterValue() string { return i.Title }
+func (i MenuItem) FilterValue() string { return i.title }
 
-func (i MenuItem) Title() string       { return i.Title }
-func (i MenuItem) Description() string { return i.Description }
+func (i MenuItem) Title() string       { return i.title }
+func (i MenuItem) Description() string { return i.description }
 
 // NewModel creates a new application model
 func NewModel() models.Model {
 	// Create menu items
 	items := []list.Item{
 		MenuItem{
-			Title:       "1. Installation & Setup",
-			Description: "Install required tools and configure remotes",
+			title:       "1. Installation & Setup",
+			description: "Install required tools and configure remotes",
 		},
 		MenuItem{
-			Title:       "2. Backup Operations",
-			Description: "Run manual sync or trigger automated backups",
+			title:       "2. Backup Operations",
+			description: "Run manual sync or trigger automated backups",
 		},
 		MenuItem{
-			Title:       "3. Log Viewer",
-			Description: "View backup logs and transfer history",
+			title:       "3. Log Viewer",
+			description: "View backup logs and transfer history",
 		},
 		MenuItem{
-			Title:       "4. LaunchAgent Management",
-			Description: "Manage automated backup scheduling",
+			title:       "4. LaunchAgent Management",
+			description: "Manage automated backup scheduling",
 		},
 		MenuItem{
-			Title:       "5. Maintenance",
-			Description: "Remove lockfiles, reset timestamps, clear logs",
+			title:       "5. Maintenance",
+			description: "Remove lockfiles, reset timestamps, clear logs",
 		},
 		MenuItem{
-			Title:       "6. Help",
-			Description: "View keyboard shortcuts and documentation",
+			title:       "6. Help",
+			description: "View keyboard shortcuts and documentation",
 		},
 		MenuItem{
-			Title:       "7. Exit",
-			Description: "Exit the application",
+			title:       "7. Exit",
+			description: "Exit the application",
 		},
 	}
 

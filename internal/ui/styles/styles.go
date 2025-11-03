@@ -92,6 +92,21 @@ var (
 	// Spinner style
 	SpinnerStyle = lipgloss.NewStyle().
 				Foreground(PrimaryColor)
+
+	// Viewport style
+	ViewportStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(BorderColor).
+			Padding(1, 2)
+
+	// Highlight style
+	HighlightStyle = lipgloss.NewStyle().
+			Foreground(PrimaryColor).
+			Bold(true)
+
+	// Muted style
+	MutedStyle = lipgloss.NewStyle().
+			Foreground(MutedColor)
 )
 
 // RenderTitle renders a styled title
@@ -132,4 +147,14 @@ func RenderBox(content string) string {
 // RenderHelp renders help text
 func RenderHelp(text string) string {
 	return HelpStyle.Render(text)
+}
+
+// RenderHighlight renders highlighted text
+func RenderHighlight(text string) string {
+	return HighlightStyle.Render(text)
+}
+
+// RenderMuted renders muted text
+func RenderMuted(text string) string {
+	return MutedStyle.Render(text)
 }

@@ -24,7 +24,7 @@ const (
 	StepSelectSourceBucket
 	StepSelectDestBucket
 	StepConfirmConfig
-	StepComplete
+	ConfigStepComplete
 )
 
 // ConfigurationModel represents the configuration wizard state
@@ -236,7 +236,7 @@ After configuration, press Enter to continue...`
 		content = m.renderConfigSummary()
 		content += "\n\nPress Enter to confirm, q to cancel"
 
-	case StepComplete:
+	case ConfigStepComplete:
 		content = styles.RenderSuccess("✓ Configuration saved successfully!")
 	}
 
@@ -301,7 +301,7 @@ func (m ConfigurationModel) handleEnter() (ConfigurationModel, tea.Cmd) {
 		}
 
 	case StepConfirmConfig:
-		m.currentStep = StepComplete
+		m.currentStep = ConfigStepComplete
 		m.complete = true
 		return m, nil
 	}
