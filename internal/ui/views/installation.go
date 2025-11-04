@@ -59,6 +59,21 @@ var (
 
 	skippedStyle = lipgloss.NewStyle().
 			Foreground(colorMuted)
+
+	// Output box styles
+	outputBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorPrimary).
+			Padding(1, 2).
+			MarginTop(1)
+
+	outputTitleStyle = lipgloss.NewStyle().
+			Foreground(colorPrimary).
+			Bold(true).
+			MarginBottom(1)
+
+	outputContentStyle = lipgloss.NewStyle().
+			Foreground(colorSecondary)
 )
 
 // InstallationItem represents an installation step
@@ -94,6 +109,8 @@ type InstallationModel struct {
 	quitting     bool
 	installer    *installer.Installer
 	statusMsg    string
+	outputBuffer []string // Buffer to store command output
+	showOutput   bool     // Whether to show the output box
 }
 
 // NewInstallationModel creates a new installation model
@@ -149,12 +166,14 @@ func NewInstallationModel() InstallationModel {
 	l.SetFilteringEnabled(false)
 
 	return InstallationModel{
-		list:        l,
-		items:       items,
-		currentStep: 0,
-		width:       80,
-		height:      20,
-		installer:   installer.NewInstaller(),
+		list:         l,
+		items:        items,
+		currentStep:  0,
+		width:        80,
+		height:       20,
+		installer:    installer.NewInstaller(),
+		outputBuffer: make([]string, 0),
+		showOutput:   false,
 	}
 }
 
@@ -170,7 +189,13 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.list.SetSize(msg.Width-4, msg.Height-4)
+		// Adjust list size based on whether output is shown
+		listHeight := msg.Height - 4
+		if m.showOutput {
+			// Split screen: 60% for list, 40% for output
+			listHeight = int(float64(msg.Height) * 0.5)
+		}
+		m.list.SetSize(msg.Width-4, listHeight)
 		return m, nil
 
 	case installStepCompleteMsg:
@@ -194,6 +219,16 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				m.UpdateStepStatus(i, m.items[i].status)
+				
+				// Add output to buffer if present
+				if msg.output != "" {
+					m.showOutput = true
+					m.outputBuffer = append(m.outputBuffer, msg.output)
+					// Keep only last 50 lines
+					if len(m.outputBuffer) > 50 {
+						m.outputBuffer = m.outputBuffer[len(m.outputBuffer)-50:]
+					}
+				}
 				break
 			}
 		}
@@ -256,7 +291,24 @@ func (m InstallationModel) View() string {
 		statusText = msgStyle.Render("\n" + m.statusMsg)
 	}
 
-	return baseStyle.Render(m.list.View() + helpText + statusText)
+	mainContent := baseStyle.Render(m.list.View() + helpText + statusText)
+
+	// Add output box if there's output to show
+	if m.showOutput && len(m.outputBuffer) > 0 {
+		outputTitle := outputTitleStyle.Render("Command Output:")
+		
+		// Join output lines and limit display
+		outputLines := m.outputBuffer
+		if len(outputLines) > 15 {
+			outputLines = outputLines[len(outputLines)-15:]
+		}
+		outputText := outputContentStyle.Render(strings.Join(outputLines, "\n"))
+		
+		outputBox := outputBoxStyle.Width(m.width - 8).Render(outputTitle + "\n" + outputText)
+		return lipgloss.JoinVertical(lipgloss.Left, mainContent, outputBox)
+	}
+
+	return mainContent
 }
 
 // executeStep executes a specific installation step
@@ -350,53 +402,59 @@ func (m InstallationModel) installOrUpdateRsync(item InstallationItem) installSt
 		// rsync is installed, check if it's via Homebrew
 		if m.installer.IsRsyncInstalledViaHomebrew() {
 			// Try to update Homebrew version
-			err := m.installer.UpdateRsync()
+			output, err := m.installer.UpdateRsyncWithOutput()
 			if err != nil {
 				return installStepCompleteMsg{
 					step:    item.title,
 					success: false,
 					err:     err,
 					message: fmt.Sprintf("✗ Failed to update rsync: %v", err),
+					output:  output,
 				}
 			}
 			return installStepCompleteMsg{
 				step:    item.title,
 				success: true,
 				message: "✓ rsync updated successfully via Homebrew",
+				output:  output,
 			}
 		}
 
 		// System rsync detected, offer to install Homebrew version
-		err := m.installer.InstallRsync()
+		output, err := m.installer.InstallRsyncWithOutput()
 		if err != nil {
 			return installStepCompleteMsg{
 				step:    item.title,
 				success: false,
 				err:     err,
 				message: fmt.Sprintf("✗ System rsync detected. Failed to install Homebrew version: %v", err),
+				output:  output,
 			}
 		}
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: true,
 			message: "✓ Homebrew rsync installed (system version still available as fallback)",
+			output:  output,
 		}
 	}
 
 	// rsync is not installed, install it
-	err := m.installer.InstallRsync()
+	output, err := m.installer.InstallRsyncWithOutput()
 	if err != nil {
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: false,
 			err:     err,
 			message: fmt.Sprintf("✗ Failed to install rsync: %v", err),
+			output:  output,
 		}
 	}
 	return installStepCompleteMsg{
 		step:    item.title,
 		success: true,
 		message: "✓ rsync installed successfully via Homebrew",
+		output:  output,
 	}
 }
 
@@ -406,6 +464,7 @@ type installStepCompleteMsg struct {
 	success bool
 	err     error
 	message string
+	output  string // Command output to display in the output box
 }
 
 // UpdateStepStatus updates the status of a specific step
