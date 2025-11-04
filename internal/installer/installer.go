@@ -196,6 +196,34 @@ func (i *Installer) GetRsyncVersion() (string, error) {
 	return "", fmt.Errorf("could not parse rsync version")
 }
 
+// GetRsyncVersionWithOutput returns the rsync version and full output
+func (i *Installer) GetRsyncVersionWithOutput() (string, string, error) {
+	if !i.CheckRsyncInstalled() {
+		return "", "", fmt.Errorf("rsync is not installed")
+	}
+
+	cmd := i.executor.Command("rsync", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", string(output), fmt.Errorf("failed to get rsync version: %w", err)
+	}
+
+	fullOutput := string(output)
+	
+	// Parse version from output (first line typically contains version)
+	lines := strings.Split(fullOutput, "\n")
+	version := ""
+	if len(lines) > 0 {
+		version = strings.TrimSpace(lines[0])
+	}
+
+	if version == "" {
+		return "", fullOutput, fmt.Errorf("could not parse rsync version")
+	}
+
+	return version, fullOutput, nil
+}
+
 // GetRsyncPath returns the full path to rsync binary
 func (i *Installer) GetRsyncPath() (string, error) {
 	path, err := i.executor.LookPath("rsync")
@@ -302,6 +330,146 @@ func (i *Installer) UpdateRsyncWithOutput() (string, error) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to update rsync: %w", err)
+	}
+
+	return string(output), nil
+}
+
+// GetRcloneVersion returns the rclone version string
+func (i *Installer) GetRcloneVersion() (string, error) {
+	if !i.CheckRcloneInstalled() {
+		return "", fmt.Errorf("rclone is not installed")
+	}
+
+	cmd := i.executor.Command("rclone", "version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get rclone version: %w", err)
+	}
+
+	// Parse version from output (first line typically contains version)
+	lines := strings.Split(string(output), "\n")
+	if len(lines) > 0 {
+		return strings.TrimSpace(lines[0]), nil
+	}
+
+	return "", fmt.Errorf("could not parse rclone version")
+}
+
+// GetRcloneVersionWithOutput returns the rclone version and full output
+func (i *Installer) GetRcloneVersionWithOutput() (string, string, error) {
+	if !i.CheckRcloneInstalled() {
+		return "", "", fmt.Errorf("rclone is not installed")
+	}
+
+	cmd := i.executor.Command("rclone", "version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", string(output), fmt.Errorf("failed to get rclone version: %w", err)
+	}
+
+	fullOutput := string(output)
+	
+	// Parse version from output (first line typically contains version)
+	lines := strings.Split(fullOutput, "\n")
+	version := ""
+	if len(lines) > 0 {
+		version = strings.TrimSpace(lines[0])
+	}
+
+	if version == "" {
+		return "", fullOutput, fmt.Errorf("could not parse rclone version")
+	}
+
+	return version, fullOutput, nil
+}
+
+// InstallRcloneWithOutput installs rclone via Homebrew and returns the output
+func (i *Installer) InstallRcloneWithOutput() (string, error) {
+	if !i.CheckHomebrewInstalled() {
+		return "", fmt.Errorf("homebrew must be installed first")
+	}
+
+	cmd := i.executor.Command("brew", "install", "rclone")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to install rclone: %w", err)
+	}
+
+	return string(output), nil
+}
+
+// UpdateRcloneWithOutput updates rclone via Homebrew and returns the output
+func (i *Installer) UpdateRcloneWithOutput() (string, error) {
+	if !i.CheckHomebrewInstalled() {
+		return "", fmt.Errorf("homebrew must be installed first")
+	}
+
+	if !i.CheckRcloneInstalled() {
+		return "", fmt.Errorf("rclone is not installed, use InstallRclone instead")
+	}
+
+	cmd := i.executor.Command("brew", "upgrade", "rclone")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to update rclone: %w", err)
+	}
+
+	return string(output), nil
+}
+
+// RunRcloneConfig runs the interactive rclone config wizard
+func (i *Installer) RunRcloneConfig() (string, error) {
+	if !i.CheckRcloneInstalled() {
+		return "", fmt.Errorf("rclone is not installed")
+	}
+
+	cmd := i.executor.Command("rclone", "config")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = i.stdout
+	cmd.Stderr = i.stderr
+
+	if err := i.executor.RunCommand(cmd); err != nil {
+		return "", fmt.Errorf("failed to run rclone config: %w", err)
+	}
+
+	return "rclone config completed", nil
+}
+
+// ListRcloneRemotes lists all configured rclone remotes
+func (i *Installer) ListRcloneRemotes() ([]string, error) {
+	if !i.CheckRcloneInstalled() {
+		return nil, fmt.Errorf("rclone is not installed")
+	}
+
+	cmd := i.executor.Command("rclone", "listremotes")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list remotes: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	remotes := make([]string, 0)
+	for _, line := range lines {
+		if line != "" {
+			remotes = append(remotes, line)
+		}
+	}
+
+	return remotes, nil
+}
+
+// TestRcloneRemote tests connectivity to a specific rclone remote
+func (i *Installer) TestRcloneRemote(remoteName string) (string, error) {
+	if !i.CheckRcloneInstalled() {
+		return "", fmt.Errorf("rclone is not installed")
+	}
+
+	// Use lsd with max-depth 1 to test connectivity
+	cmd := i.executor.Command("rclone", "lsd", remoteName+":", "--max-depth", "1")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to connect to remote: %w", err)
 	}
 
 	return string(output), nil
