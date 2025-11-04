@@ -328,8 +328,10 @@ func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 	switch {
 	case strings.HasPrefix(title, "1."):
 		m.State = StateInstallation
-		m.Message = "Installation wizard not yet implemented"
-		m.ShowMessage = true
+		// Initialize installation wizard
+		installModel := views.NewInstallationModel()
+		m.ActiveSubView = installModel
+		return m, installModel.Init()
 	case strings.HasPrefix(title, "2."):
 		m.State = StateBackupRunning
 		// Initialize backup operations view
