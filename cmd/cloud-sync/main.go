@@ -19,6 +19,7 @@ func main() {
 		ui.NewModel(),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(), // Enable mouse support for scrolling
+		tea.WithFPS(30),           // Force more frequent repaints to avoid partial updates
 	)
 
 	// Run the program
