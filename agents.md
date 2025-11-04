@@ -256,6 +256,7 @@ cloud-sync/
 ## Remember
 
 - ✅ Commit each file individually
+- ✅ Do not commit the changes before you write test cases for them and run them successfully
 - ✅ Commit each modification individually  
 - ✅ Use correct GitHub username: `andreisuslov`
 - ✅ Verify Go is installed before Go commands
