@@ -2,7 +2,6 @@ package integration
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -38,7 +37,7 @@ func (w *frameWriter) Bytes() []byte {
 var (
 	// Sequence used by bubbletea full-frame renderer to clear + home
 	clearHome = []byte("\x1b[2J\x1b[H")
-	ansiRe    = regexp.MustCompile("\x1b\[[0-9;]*[a-zA-Z]")
+	ansiRe    = regexp.MustCompile("\\x1b\\[[0-9;]*[a-zA-Z]")
 )
 
 // splitFrames splits the captured output stream into full-frame snapshots.
@@ -99,12 +98,12 @@ func Test_MainMenu_RepaintsMultipleLinesOnUp(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Set a small window to force scrolling
-	_ = p.Send(tea.WindowSizeMsg{Width: 60, Height: 12})
+	p.Send(tea.WindowSizeMsg{Width: 60, Height: 12})
 	time.Sleep(30 * time.Millisecond)
 
 	// Scroll down many times to around 50%
 	for i := 0; i < 12; i++ {
-		_ = p.Send(tea.KeyMsg{Type: tea.KeyDown})
+		p.Send(tea.KeyMsg{Type: tea.KeyDown})
 		time.Sleep(20 * time.Millisecond)
 	}
 
@@ -114,7 +113,7 @@ func Test_MainMenu_RepaintsMultipleLinesOnUp(t *testing.T) {
 	prev := before[len(before)-1]
 
 	// Press Up once
-	_ = p.Send(tea.KeyMsg{Type: tea.KeyUp})
+	p.Send(tea.KeyMsg{Type: tea.KeyUp})
 	time.Sleep(40 * time.Millisecond)
 
 	// Capture frame after Up
@@ -127,7 +126,7 @@ func Test_MainMenu_RepaintsMultipleLinesOnUp(t *testing.T) {
 	req.Greaterf(changed, 1, "expected multiple lines to change on Up, got %d", changed)
 
 	// Quit program
-	_ = p.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	p.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	<-done
 }
 
@@ -148,20 +147,20 @@ func Test_HelpViewport_RepaintsMultipleLinesOnUp(t *testing.T) {
 	}()
 	time.Sleep(50 * time.Millisecond)
 
-	_ = p.Send(tea.WindowSizeMsg{Width: 60, Height: 14})
+	p.Send(tea.WindowSizeMsg{Width: 60, Height: 14})
 	time.Sleep(30 * time.Millisecond)
 
 	// Move to Help (menu item 6): five downs then enter
 	for i := 0; i < 5; i++ {
-		_ = p.Send(tea.KeyMsg{Type: tea.KeyDown})
+		p.Send(tea.KeyMsg{Type: tea.KeyDown})
 		time.Sleep(10 * time.Millisecond)
 	}
-	_ = p.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	p.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	time.Sleep(30 * time.Millisecond)
 
 	// Scroll down a bunch
 	for i := 0; i < 10; i++ {
-		_ = p.Send(tea.KeyMsg{Type: tea.KeyDown})
+		p.Send(tea.KeyMsg{Type: tea.KeyDown})
 		time.Sleep(15 * time.Millisecond)
 	}
 
@@ -170,7 +169,7 @@ func Test_HelpViewport_RepaintsMultipleLinesOnUp(t *testing.T) {
 	prev := before[len(before)-1]
 
 	// One Up
-	_ = p.Send(tea.KeyMsg{Type: tea.KeyUp})
+	p.Send(tea.KeyMsg{Type: tea.KeyUp})
 	time.Sleep(40 * time.Millisecond)
 
 	after := splitFrames(fw.Bytes())
@@ -180,6 +179,6 @@ func Test_HelpViewport_RepaintsMultipleLinesOnUp(t *testing.T) {
 	changed := countChangedLines(prev, curr)
 	req.Greaterf(changed, 1, "expected multiple lines to change on Up in help, got %d", changed)
 
-	_ = p.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	p.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	<-done
 }
