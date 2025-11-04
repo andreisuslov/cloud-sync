@@ -2,7 +2,9 @@ package views
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/andreisuslov/cloud-sync/internal/installer"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -39,6 +41,8 @@ type InstallationModel struct {
 	height       int
 	err          error
 	quitting     bool
+	installer    *installer.Installer
+	statusMsg    string
 }
 
 // NewInstallationModel creates a new installation model
@@ -99,6 +103,7 @@ func NewInstallationModel() InstallationModel {
 		currentStep: 0,
 		width:       80,
 		height:      20,
+		installer:   installer.NewInstaller(),
 	}
 }
 
@@ -115,6 +120,23 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.list.SetSize(msg.Width-4, msg.Height-4)
+		return m, nil
+
+	case installStepCompleteMsg:
+		// Update the step status based on the result
+		for i := range m.items {
+			if m.items[i].title == msg.step {
+				if msg.success {
+					m.items[i].status = StatusComplete
+					m.statusMsg = msg.message
+				} else {
+					m.items[i].status = StatusFailed
+					m.statusMsg = fmt.Sprintf("Error: %v", msg.err)
+				}
+				m.UpdateStepStatus(i, m.items[i].status)
+				break
+			}
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -167,17 +189,124 @@ func (m InstallationModel) View() string {
 		Foreground(lipgloss.Color("241")).
 		Render("\n↑/↓ or j/k: navigate (wrap-around) • enter: execute step • q: quit")
 
-	return style.Render(m.list.View() + helpText)
+	statusText := ""
+	if m.statusMsg != "" {
+		statusStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).
+			Padding(1, 0)
+		statusText = statusStyle.Render("\n" + m.statusMsg)
+	}
+
+	return style.Render(m.list.View() + helpText + statusText)
 }
 
 // executeStep executes a specific installation step
 func (m InstallationModel) executeStep(item InstallationItem) tea.Cmd {
 	return func() tea.Msg {
-		// This will be implemented to call the actual installation functions
+		// Determine which step to execute based on title
+		switch {
+		case strings.Contains(item.title, "Check rsync Installation"):
+			return m.checkRsyncInstallation(item)
+		case strings.Contains(item.title, "Check rsync Version"):
+			return m.checkRsyncVersion(item)
+		case strings.Contains(item.title, "Install/Update rsync"):
+			return m.installOrUpdateRsync(item)
+		default:
+			return installStepCompleteMsg{
+				step:    item.title,
+				success: false,
+				err:     fmt.Errorf("step not implemented yet"),
+			}
+		}
+	}
+}
+
+// checkRsyncInstallation checks if rsync is installed
+func (m InstallationModel) checkRsyncInstallation(item InstallationItem) installStepCompleteMsg {
+	if m.installer.CheckRsyncInstalled() {
+		path, err := m.installer.GetRsyncPath()
+		if err != nil {
+			return installStepCompleteMsg{
+				step:    item.title,
+				success: true,
+				message: "✓ rsync is installed",
+			}
+		}
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: true,
+			message: fmt.Sprintf("✓ rsync is installed at: %s", path),
 		}
+	}
+	return installStepCompleteMsg{
+		step:    item.title,
+		success: false,
+		err:     fmt.Errorf("rsync is not installed"),
+		message: "✗ rsync is not installed",
+	}
+}
+
+// checkRsyncVersion checks the rsync version
+func (m InstallationModel) checkRsyncVersion(item InstallationItem) installStepCompleteMsg {
+	version, err := m.installer.GetRsyncVersion()
+	if err != nil {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     err,
+			message: fmt.Sprintf("✗ Failed to get rsync version: %v", err),
+		}
+	}
+	return installStepCompleteMsg{
+		step:    item.title,
+		success: true,
+		message: fmt.Sprintf("✓ %s", version),
+	}
+}
+
+// installOrUpdateRsync installs or updates rsync
+func (m InstallationModel) installOrUpdateRsync(item InstallationItem) installStepCompleteMsg {
+	if !m.installer.CheckHomebrewInstalled() {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     fmt.Errorf("homebrew is required but not installed"),
+			message: "✗ Homebrew is required. Please install Homebrew first.",
+		}
+	}
+
+	if m.installer.CheckRsyncInstalled() {
+		// rsync is installed, try to update
+		err := m.installer.UpdateRsync()
+		if err != nil {
+			return installStepCompleteMsg{
+				step:    item.title,
+				success: false,
+				err:     err,
+				message: fmt.Sprintf("✗ Failed to update rsync: %v", err),
+			}
+		}
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: true,
+			message: "✓ rsync updated successfully",
+		}
+	}
+
+	// rsync is not installed, install it
+	err := m.installer.InstallRsync()
+	if err != nil {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     err,
+			message: fmt.Sprintf("✗ Failed to install rsync: %v", err),
+		}
+	}
+	return installStepCompleteMsg{
+		step:    item.title,
+		success: true,
+		message: "✓ rsync installed successfully",
 	}
 }
 
@@ -186,6 +315,7 @@ type installStepCompleteMsg struct {
 	step    string
 	success bool
 	err     error
+	message string
 }
 
 // UpdateStepStatus updates the status of a specific step
