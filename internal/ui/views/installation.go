@@ -13,6 +13,7 @@ import (
 	"github.com/andreisuslov/cloud-sync/internal/config"
 	"github.com/andreisuslov/cloud-sync/internal/installer"
 	"github.com/andreisuslov/cloud-sync/internal/launchd"
+	"github.com/andreisuslov/cloud-sync/internal/syncconfig"
 	"github.com/andreisuslov/cloud-sync/internal/ui/styles"
 )
 
@@ -31,6 +32,9 @@ const (
 	StepConfigureLaunchAgent
 	StepGenerateScripts
 	InstallStepComplete
+	StepPostInstallMenu
+	StepViewConfigs
+	StepManageSyncPairs
 )
 
 // InstallationModel represents the installation wizard state
@@ -38,6 +42,7 @@ type InstallationModel struct {
 	installer        *installer.Installer
 	configManager    *config.Manager
 	launchdMgr       *launchd.Manager
+	syncConfigMgr    *syncconfig.Manager
 	currentStep      InstallationStep
 	spinner          spinner.Model
 	homebrewOK       bool
@@ -57,6 +62,7 @@ type InstallationModel struct {
 	binDir           string
 	logDir           string
 	activeSubView    tea.Model
+	menuChoice       int
 }
 
 // NewInstallationModel creates a new installation wizard model
@@ -69,16 +75,19 @@ func NewInstallationModel() InstallationModel {
 	configMgr, _ := config.NewManager()
 	username := os.Getenv("USER")
 	launchdMgr := launchd.NewManager(username)
+	syncConfigMgr, _ := syncconfig.NewDefaultManager()
 
 	return InstallationModel{
 		installer:     installer.NewInstaller(),
 		configManager: configMgr,
 		launchdMgr:    launchdMgr,
+		syncConfigMgr: syncConfigMgr,
 		currentStep:   StepCheckHomebrew,
 		spinner:       s,
 		homeDir:       homeDir,
 		binDir:        filepath.Join(homeDir, "bin"),
 		logDir:        filepath.Join(homeDir, "logs"),
+		menuChoice:    0,
 	}
 }
 
@@ -136,10 +145,38 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.installing = true
 						return m, m.generateScripts()
 					}
+				case StepManageSyncPairs:
+					if msg.String() == "q" || msg.String() == "esc" {
+						m.activeSubView = nil
+						m.currentStep = StepPostInstallMenu
+						return m, nil
+					}
 				}
 			}
 			return m, cmd
 		}
+		
+		// Handle post-install menu navigation
+		if m.currentStep == StepPostInstallMenu {
+			switch msg.String() {
+			case "1":
+				m.currentStep = StepViewConfigs
+				return m, nil
+			case "2":
+				m.currentStep = StepManageSyncPairs
+				syncPairsModel := NewSyncPairsModel(m.syncConfigMgr)
+				m.activeSubView = syncPairsModel
+				return m, syncPairsModel.Init()
+			case "q", "esc":
+				return m, tea.Quit
+			}
+		} else if m.currentStep == StepViewConfigs {
+			if msg.String() == "q" || msg.String() == "esc" {
+				m.currentStep = StepPostInstallMenu
+				return m, nil
+			}
+		}
+		
 		return m, nil
 
 	case spinner.TickMsg:
@@ -175,9 +212,11 @@ func (m InstallationModel) View() string {
 
 	b.WriteString(helper.RenderHeader("Installation Wizard", "Setting up required tools"))
 
-	// Show current progress
-	b.WriteString(m.renderProgress())
-	b.WriteString("\n\n")
+	// Show current progress (but not for post-install menu)
+	if m.currentStep < StepPostInstallMenu {
+		b.WriteString(m.renderProgress())
+		b.WriteString("\n\n")
+	}
 
 	// Show current step
 	b.WriteString(m.renderCurrentStep())
@@ -189,15 +228,23 @@ func (m InstallationModel) View() string {
 		b.WriteString("\n")
 	}
 
-	if m.complete {
-		b.WriteString("\n")
-		b.WriteString(styles.RenderSuccess("✓ Installation complete!"))
-		b.WriteString("\n")
-		b.WriteString(helper.RenderFooter("Press Enter to continue • q: Back to menu"))
-	} else if m.installing {
-		b.WriteString(helper.RenderFooter("Please wait... • q: Cancel"))
-	} else {
-		b.WriteString(helper.RenderFooter("Press Enter to continue • q: Back to menu"))
+	// Render footer based on current step
+	switch m.currentStep {
+	case StepPostInstallMenu:
+		b.WriteString(helper.RenderFooter("Select option (1-2) • q: Exit"))
+	case StepViewConfigs:
+		b.WriteString(helper.RenderFooter("q: Back to menu"))
+	default:
+		if m.complete {
+			b.WriteString("\n")
+			b.WriteString(styles.RenderSuccess("✓ Installation complete!"))
+			b.WriteString("\n")
+			b.WriteString(helper.RenderFooter("Press Enter to continue • q: Back to menu"))
+		} else if m.installing {
+			b.WriteString(helper.RenderFooter("Please wait... • q: Cancel"))
+		} else {
+			b.WriteString(helper.RenderFooter("Press Enter to continue • q: Back to menu"))
+		}
 	}
 
 	return b.String()
@@ -283,9 +330,65 @@ func (m InstallationModel) renderCurrentStep() string {
 		}
 	case InstallStepComplete:
 		content = styles.RenderSuccess("✓ Installation complete!\n\nAll tools installed and configured.\nBackups will run automatically according to your schedule.")
+	case StepPostInstallMenu:
+		content = m.renderPostInstallMenu()
+	case StepViewConfigs:
+		content = m.renderConfigsView()
 	}
 
 	return box.Render(content)
+}
+
+// renderPostInstallMenu renders the post-install menu
+func (m InstallationModel) renderPostInstallMenu() string {
+	var b strings.Builder
+	b.WriteString(styles.RenderSuccess("✓ Installation Complete!\n\n"))
+	b.WriteString("What would you like to do?\n\n")
+	b.WriteString("1. View current rclone remotes and sync configurations\n")
+	b.WriteString("2. Add/manage sync pairs\n")
+	b.WriteString("\nPress 1 or 2 to select, q to exit")
+	return b.String()
+}
+
+// renderConfigsView renders the current configurations
+func (m InstallationModel) renderConfigsView() string {
+	var b strings.Builder
+	
+	b.WriteString(styles.RenderInfo("Current Configuration\n\n"))
+	
+	// Show rclone remotes
+	b.WriteString("Rclone Remotes:\n")
+	appConfig, err := m.configManager.Load()
+	if err != nil || len(appConfig.Remotes) == 0 {
+		b.WriteString("  No remotes configured\n")
+	} else {
+		for _, remote := range appConfig.Remotes {
+			b.WriteString(fmt.Sprintf("  • %s (%s)\n", remote.Name, remote.Provider))
+		}
+	}
+	
+	b.WriteString("\nSync Pairs:\n")
+	syncPairs, err := m.syncConfigMgr.ListSyncPairs()
+	if err != nil || len(syncPairs) == 0 {
+		b.WriteString("  No sync pairs configured\n")
+	} else {
+		for _, pair := range syncPairs {
+			status := "✓"
+			if !pair.Enabled {
+				status = "✗"
+			}
+			b.WriteString(fmt.Sprintf("  [%s] %s: %s → %s:%s (%s)\n", 
+				status, pair.Name, pair.LocalPath, pair.RemoteName, pair.RemotePath, pair.Direction))
+		}
+	}
+	
+	b.WriteString("\n\nCommands:\n")
+	b.WriteString("  View rclone config: rclone config\n")
+	b.WriteString("  List remotes: rclone listremotes\n")
+	b.WriteString("  Test remote: rclone lsd <remote>:\n")
+	b.WriteString("\nPress q or Esc to go back")
+	
+	return b.String()
 }
 
 // checkHomebrew returns a command to check if Homebrew is installed
@@ -375,7 +478,7 @@ func (m InstallationModel) handleScriptResult(msg scriptResult) (tea.Model, tea.
 	}
 
 	m.scriptsGenerated = true
-	m.currentStep = InstallStepComplete
+	m.currentStep = StepPostInstallMenu
 	m.complete = true
 	return m, nil
 }
