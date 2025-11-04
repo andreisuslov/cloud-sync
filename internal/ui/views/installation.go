@@ -59,7 +59,7 @@ func NewInstallationModel() InstallationModel {
 			status:      StatusPending,
 		},
 		{
-			title:       "3. Install/Update rsync (Optional)",
+			title:       "3. Install/Update rsync",
 			description: "Install latest rsync version via Homebrew if needed",
 			status:      StatusPending,
 		},
@@ -128,10 +128,19 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.items[i].title == msg.step {
 				if msg.success {
 					m.items[i].status = StatusComplete
-					m.statusMsg = msg.message
+					if msg.message != "" {
+						m.statusMsg = msg.message
+					}
 				} else {
 					m.items[i].status = StatusFailed
-					m.statusMsg = fmt.Sprintf("Error: %v", msg.err)
+					// Use message if available, otherwise format error
+					if msg.message != "" {
+						m.statusMsg = msg.message
+					} else if msg.err != nil {
+						m.statusMsg = fmt.Sprintf("Error: %v", msg.err)
+					} else {
+						m.statusMsg = "Error: Unknown error occurred"
+					}
 				}
 				m.UpdateStepStatus(i, m.items[i].status)
 				break
@@ -203,6 +212,18 @@ func (m InstallationModel) View() string {
 // executeStep executes a specific installation step
 func (m InstallationModel) executeStep(item InstallationItem) tea.Cmd {
 	return func() tea.Msg {
+		// Add panic recovery to prevent UI crashes
+		defer func() {
+			if r := recover(); r != nil {
+				// If panic occurs, return error message
+				_ = installStepCompleteMsg{
+					step:    item.title,
+					success: false,
+					message: fmt.Sprintf("✗ Panic occurred: %v", r),
+				}
+			}
+		}()
+
 		// Determine which step to execute based on title
 		switch {
 		case strings.Contains(item.title, "Check rsync Installation"):
@@ -215,7 +236,7 @@ func (m InstallationModel) executeStep(item InstallationItem) tea.Cmd {
 			return installStepCompleteMsg{
 				step:    item.title,
 				success: false,
-				err:     fmt.Errorf("step not implemented yet"),
+				message: "✗ Step not implemented yet",
 			}
 		}
 	}
@@ -276,20 +297,39 @@ func (m InstallationModel) installOrUpdateRsync(item InstallationItem) installSt
 	}
 
 	if m.installer.CheckRsyncInstalled() {
-		// rsync is installed, try to update
-		err := m.installer.UpdateRsync()
+		// rsync is installed, check if it's via Homebrew
+		if m.installer.IsRsyncInstalledViaHomebrew() {
+			// Try to update Homebrew version
+			err := m.installer.UpdateRsync()
+			if err != nil {
+				return installStepCompleteMsg{
+					step:    item.title,
+					success: false,
+					err:     err,
+					message: fmt.Sprintf("✗ Failed to update rsync: %v", err),
+				}
+			}
+			return installStepCompleteMsg{
+				step:    item.title,
+				success: true,
+				message: "✓ rsync updated successfully via Homebrew",
+			}
+		}
+
+		// System rsync detected, offer to install Homebrew version
+		err := m.installer.InstallRsync()
 		if err != nil {
 			return installStepCompleteMsg{
 				step:    item.title,
 				success: false,
 				err:     err,
-				message: fmt.Sprintf("✗ Failed to update rsync: %v", err),
+				message: fmt.Sprintf("✗ System rsync detected. Failed to install Homebrew version: %v", err),
 			}
 		}
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: true,
-			message: "✓ rsync updated successfully",
+			message: "✓ Homebrew rsync installed (system version still available as fallback)",
 		}
 	}
 
@@ -306,7 +346,7 @@ func (m InstallationModel) installOrUpdateRsync(item InstallationItem) installSt
 	return installStepCompleteMsg{
 		step:    item.title,
 		success: true,
-		message: "✓ rsync installed successfully",
+		message: "✓ rsync installed successfully via Homebrew",
 	}
 }
 
