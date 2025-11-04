@@ -227,7 +227,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.List, cmd = m.List.Update(msg)
 			return m, cmd
 		} else if m.State == StateHelp {
-			// Handle help screen navigation
+			// Handle help screen specific keys only
 			switch msg.String() {
 			case "q", "esc":
 				m.State = StateMainMenu
@@ -236,12 +236,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c":
 				m.Quitting = true
 				return m, tea.Quit
-			default:
-				// Let viewport handle scrolling keys
-				var cmd tea.Cmd
-				m.HelpViewport, cmd = m.HelpViewport.Update(msg)
-				return m, cmd
 			}
+			// Forward all other keys directly to the help viewport and return
+			var cmd tea.Cmd
+			m.HelpViewport, cmd = m.HelpViewport.Update(msg)
+			return m, cmd
 		} else {
 			// Handle keys for other states
 			return m.handleKeyPress(msg)
@@ -270,6 +269,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.Spinner, cmd = m.Spinner.Update(msg)
+		return m, cmd
+	}
+
+	// Update help viewport for any remaining messages when in help state
+	// This ensures viewport receives frame messages and other updates needed for smooth scrolling
+	if m.State == StateHelp && m.HelpReady {
+		var cmd tea.Cmd
+		m.HelpViewport, cmd = m.HelpViewport.Update(msg)
 		return m, cmd
 	}
 
@@ -356,6 +363,8 @@ func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 		m.HelpViewport = viewport.New(m.Width-4, m.Height-6)
 		m.HelpViewport.SetContent(m.getHelpContent())
 		m.HelpReady = true
+		// Ensure viewport is at the top
+		m.HelpViewport.GotoTop()
 	case strings.HasPrefix(title, "7."):
 		m.Quitting = true
 		return m, tea.Quit
