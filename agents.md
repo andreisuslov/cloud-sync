@@ -11,9 +11,8 @@
 
 ### Commit Strategy
 
-**CRITICAL**: Commit each and every change individually when it is created.
+**CRITICAL**: Commit each and every change individually when it is ready, we should have no more than one file per commit. In some cases, we should commit just the certain lines from ther file.
 
-- **One file per commit**: Each new file created must be committed before moving to the next file
 - **One modification per commit**: Each modification to an existing file must be committed before making the next change
 - **Small, atomic commits**: Break down work into the smallest logical units
 - **No batch commits**: Never accumulate multiple changes before committing
@@ -215,33 +214,6 @@ source ~/.zshrc
 ```bash
 # Make scripts executable
 chmod +x script.sh
-```
-
-## Project Structure
-
-```
-cloud-sync/
-├── cmd/cloud-sync/          # Main application entry
-├── internal/                # Private application code
-│   ├── installer/          # Tool installation
-│   ├── rclone/             # Rclone operations
-│   ├── scripts/            # Script generation
-│   ├── launchd/            # LaunchAgent management
-│   ├── logs/               # Log parsing
-│   ├── lockfile/           # Lockfile management
-│   └── ui/                 # TUI components
-├── pkg/                    # Public API
-├── scripts/                # Script templates
-├── tests/                  # Test files
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── testutil/          # Test helpers
-├── go.mod                  # Go module definition
-├── go.sum                  # Dependency checksums
-├── README.md               # Project README
-├── project-plan.md         # Implementation roadmap
-├── agents.md               # This file
-└── .gitignore              # Git ignore rules
 ```
 
 ## Key Principles
