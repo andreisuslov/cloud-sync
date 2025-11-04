@@ -21,19 +21,27 @@ import (
 type InstallationStep int
 
 const (
-	StepCheckHomebrew InstallationStep = iota
+	StepMainInstallMenu InstallationStep = iota
+	StepInstallTools
+	StepCheckHomebrew
 	StepInstallHomebrew
 	StepCheckRclone
 	StepInstallRclone
 	StepCreateDirectories
+	StepSetupLocation
+	StepLocationTypeSelection
+	StepConfigureLocalLocation
+	StepConfigureRemoteLocation
 	StepConfigureB2Remote
 	StepConfigureScalewayRemote
+	StepConfigureS3Remote
 	StepConfigureSyncPairs
 	StepConfigureLaunchAgent
 	StepGenerateScripts
 	InstallStepComplete
 	StepPostInstallMenu
 	StepViewConfigs
+	StepViewLocations
 	StepManageSyncPairs
 )
 
@@ -50,6 +58,8 @@ type InstallationModel struct {
 	directoriesOK    bool
 	b2Configured     bool
 	scalewayConfigured bool
+	s3Configured     bool
+	localConfigured  bool
 	syncConfigured   bool
 	launchConfigured bool
 	scriptsGenerated bool
@@ -63,6 +73,7 @@ type InstallationModel struct {
 	logDir           string
 	activeSubView    tea.Model
 	menuChoice       int
+	locationType     string // "local" or "remote"
 }
 
 // NewInstallationModel creates a new installation wizard model
@@ -82,7 +93,7 @@ func NewInstallationModel() InstallationModel {
 		configManager: configMgr,
 		launchdMgr:    launchdMgr,
 		syncConfigMgr: syncConfigMgr,
-		currentStep:   StepCheckHomebrew,
+		currentStep:   StepMainInstallMenu,
 		spinner:       s,
 		homeDir:       homeDir,
 		binDir:        filepath.Join(homeDir, "bin"),
@@ -93,10 +104,7 @@ func NewInstallationModel() InstallationModel {
 
 // Init initializes the installation wizard
 func (m InstallationModel) Init() tea.Cmd {
-	return tea.Batch(
-		m.spinner.Tick,
-		m.checkHomebrew(),
-	)
+	return m.spinner.Tick
 }
 
 // Update handles messages for the installation wizard
@@ -156,8 +164,51 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		
-		// Handle post-install menu navigation
-		if m.currentStep == StepPostInstallMenu {
+		// Handle main installation menu navigation
+		if m.currentStep == StepMainInstallMenu {
+			switch msg.String() {
+			case "1":
+				m.currentStep = StepInstallTools
+				m.installing = true
+				return m, m.checkHomebrew()
+			case "2":
+				m.currentStep = StepLocationTypeSelection
+				return m, nil
+			case "3":
+				m.currentStep = StepViewLocations
+				return m, nil
+			case "q", "esc":
+				return m, tea.Quit
+			}
+		} else if m.currentStep == StepLocationTypeSelection {
+			switch msg.String() {
+			case "1":
+				m.locationType = "local"
+				m.currentStep = StepConfigureLocalLocation
+				// TODO: Initialize local location config view
+				return m, nil
+			case "2":
+				m.locationType = "remote"
+				m.currentStep = StepConfigureRemoteLocation
+				return m, nil
+			case "q", "esc":
+				m.currentStep = StepMainInstallMenu
+				return m, nil
+			}
+		} else if m.currentStep == StepConfigureRemoteLocation {
+			switch msg.String() {
+			case "1":
+				m.currentStep = StepConfigureB2Remote
+				return m, m.initB2Config()
+			case "2":
+				m.currentStep = StepConfigureS3Remote
+				// TODO: Initialize S3 config view
+				return m, nil
+			case "q", "esc":
+				m.currentStep = StepLocationTypeSelection
+				return m, nil
+			}
+		} else if m.currentStep == StepPostInstallMenu {
 			switch msg.String() {
 			case "1":
 				m.currentStep = StepViewConfigs
@@ -170,9 +221,9 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "q", "esc":
 				return m, tea.Quit
 			}
-		} else if m.currentStep == StepViewConfigs {
+		} else if m.currentStep == StepViewConfigs || m.currentStep == StepViewLocations {
 			if msg.String() == "q" || msg.String() == "esc" {
-				m.currentStep = StepPostInstallMenu
+				m.currentStep = StepMainInstallMenu
 				return m, nil
 			}
 		}
@@ -230,6 +281,14 @@ func (m InstallationModel) View() string {
 
 	// Render footer based on current step
 	switch m.currentStep {
+	case StepMainInstallMenu:
+		b.WriteString(helper.RenderFooter("Select option (1-3) • q: Exit"))
+	case StepLocationTypeSelection:
+		b.WriteString(helper.RenderFooter("Select location type (1-2) • q: Back"))
+	case StepConfigureRemoteLocation:
+		b.WriteString(helper.RenderFooter("Select remote type (1-2) • q: Back"))
+	case StepViewLocations:
+		b.WriteString(helper.RenderFooter("q: Back to menu"))
 	case StepPostInstallMenu:
 		b.WriteString(helper.RenderFooter("Select option (1-2) • q: Exit"))
 	case StepViewConfigs:
@@ -292,6 +351,14 @@ func (m InstallationModel) renderCurrentStep() string {
 	var content string
 
 	switch m.currentStep {
+	case StepMainInstallMenu:
+		content = m.renderMainInstallMenu()
+	case StepLocationTypeSelection:
+		content = m.renderLocationTypeSelection()
+	case StepConfigureRemoteLocation:
+		content = m.renderRemoteLocationSelection()
+	case StepViewLocations:
+		content = m.renderLocationsView()
 	case StepCheckHomebrew:
 		content = fmt.Sprintf("%s Checking for Homebrew...", m.spinner.View())
 	case StepInstallHomebrew:
@@ -347,6 +414,81 @@ func (m InstallationModel) renderPostInstallMenu() string {
 	b.WriteString("1. View current rclone remotes and sync configurations\n")
 	b.WriteString("2. Add/manage sync pairs\n")
 	b.WriteString("\nPress 1 or 2 to select, q to exit")
+	return b.String()
+}
+
+// renderMainInstallMenu renders the main installation menu
+func (m InstallationModel) renderMainInstallMenu() string {
+	var b strings.Builder
+	b.WriteString(styles.RenderInfo("Installation Menu\n\n"))
+	b.WriteString("Choose an option:\n\n")
+	b.WriteString("1. Install and set up required tools\n")
+	b.WriteString("2. Set up a new location\n")
+	b.WriteString("3. View existing locations\n")
+	b.WriteString("\nPress 1, 2, or 3 to select, q to exit")
+	return b.String()
+}
+
+// renderLocationTypeSelection renders the location type selection menu
+func (m InstallationModel) renderLocationTypeSelection() string {
+	var b strings.Builder
+	b.WriteString(styles.RenderInfo("Set Up a New Location\n\n"))
+	b.WriteString("What type of location would you like to configure?\n\n")
+	b.WriteString("1. Local folder\n")
+	b.WriteString("2. Remote storage (B2, S3, etc.)\n")
+	b.WriteString("\nPress 1 or 2 to select, q to go back")
+	return b.String()
+}
+
+// renderRemoteLocationSelection renders the remote location type selection menu
+func (m InstallationModel) renderRemoteLocationSelection() string {
+	var b strings.Builder
+	b.WriteString(styles.RenderInfo("Configure Remote Storage\n\n"))
+	b.WriteString("Select a remote storage provider:\n\n")
+	b.WriteString("1. Backblaze B2\n")
+	b.WriteString("2. Amazon S3\n")
+	b.WriteString("\nPress 1 or 2 to select, q to go back")
+	return b.String()
+}
+
+// renderLocationsView renders the existing locations view
+func (m InstallationModel) renderLocationsView() string {
+	var b strings.Builder
+	
+	b.WriteString(styles.RenderInfo("Existing Locations\n\n"))
+	
+	// Show rclone remotes
+	b.WriteString("Remote Locations:\n")
+	appConfig, err := m.configManager.Load()
+	if err != nil || len(appConfig.Remotes) == 0 {
+		b.WriteString("  No remote locations configured\n")
+	} else {
+		for _, remote := range appConfig.Remotes {
+			b.WriteString(fmt.Sprintf("  • %s (%s)\n", remote.Name, remote.Provider))
+		}
+	}
+	
+	b.WriteString("\nLocal Sync Folders:\n")
+	syncPairs, err := m.syncConfigMgr.ListSyncPairs()
+	if err != nil || len(syncPairs) == 0 {
+		b.WriteString("  No local folders configured\n")
+	} else {
+		// Show unique local paths
+		localPaths := make(map[string]bool)
+		for _, pair := range syncPairs {
+			if !localPaths[pair.LocalPath] {
+				localPaths[pair.LocalPath] = true
+				status := "✓"
+				if !pair.Enabled {
+					status = "✗"
+				}
+				b.WriteString(fmt.Sprintf("  [%s] %s\n", status, pair.LocalPath))
+			}
+		}
+	}
+	
+	b.WriteString("\nPress q or Esc to go back")
+	
 	return b.String()
 }
 
