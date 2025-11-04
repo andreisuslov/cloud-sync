@@ -1,7 +1,7 @@
 # Cloud Backup Management Tool - Project Plan
 
 ## Project Overview
-A terminal-based GUI application (using bubbletea) for managing automated cloud-to-cloud backups from Backblaze B2 to Scaleway Object Storage. The tool implements the 3-2-1 backup strategy with comprehensive management capabilities.
+A terminal-based GUI application (using bubbletea) for managing automated cloud-to-cloud backups between any rclone-supported cloud storage providers. The tool implements the 3-2-1 backup strategy with comprehensive management capabilities.
 
 ## Technology Stack
 - **Language**: Go 1.21+
@@ -92,7 +92,7 @@ cloud-sync/
 **Module**: `internal/rclone`
 
 #### Features:
-- [x] Interactive remote configuration (B2, Scaleway, any other rsync supported platform)
+- [x] Interactive remote configuration (any rclone-supported platform)
 - [x] List configured remotes
 - [x] Test remote connectivity
 - [x] List buckets for each remote
@@ -428,10 +428,10 @@ const (
 - [ ] Test connectivity button
 
 #### Steps:
-1. Configure B2 remote (keyID, applicationKey)
-2. List and select B2 bucket
-3. Configure Scaleway remote (access key, secret key, region)
-4. List and select Scaleway bucket
+1. Configure source remote (any supported provider)
+2. List and select source bucket
+3. Configure destination remote (any supported provider)
+4. List and select destination bucket
 5. Review and confirm
 6. Generate scripts
 7. Setup LaunchAgent
