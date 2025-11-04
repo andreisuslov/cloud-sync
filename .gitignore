@@ -1,0 +1,35 @@
+# Binaries
+cloud-sync
+cloud-sync-debug
+cloud-sync-test
+csync
+csync-amd64
+csync-arm64
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
