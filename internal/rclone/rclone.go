@@ -2,6 +2,7 @@ package rclone
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -227,6 +228,86 @@ func (m *Manager) Sync(source, dest string, progress bool, dryRun bool) error {
 	}
 
 	return nil
+}
+
+// SyncLocalToRemote syncs a local folder to a remote location
+func (m *Manager) SyncLocalToRemote(localPath, remoteName, remotePath string, progress bool, dryRun bool) error {
+	// Validate local path exists
+	if _, err := os.Stat(localPath); err != nil {
+		return fmt.Errorf("local path does not exist: %w", err)
+	}
+
+	// Build remote destination
+	dest := fmt.Sprintf("%s:%s", remoteName, remotePath)
+	
+	return m.Sync(localPath, dest, progress, dryRun)
+}
+
+// SyncRemoteToLocal syncs a remote location to a local folder
+func (m *Manager) SyncRemoteToLocal(remoteName, remotePath, localPath string, progress bool, dryRun bool) error {
+	// Ensure local directory exists
+	if err := os.MkdirAll(localPath, 0755); err != nil {
+		return fmt.Errorf("failed to create local directory: %w", err)
+	}
+
+	// Build remote source
+	source := fmt.Sprintf("%s:%s", remoteName, remotePath)
+	
+	return m.Sync(source, localPath, progress, dryRun)
+}
+
+// ListLocalFiles lists files in a local directory (for preview)
+func (m *Manager) ListLocalFiles(localPath string, maxDepth int) ([]string, error) {
+	args := []string{"ls", localPath}
+	
+	if maxDepth > 0 {
+		args = append(args, "--max-depth", fmt.Sprintf("%d", maxDepth))
+	}
+
+	cmd := exec.Command(m.rclonePath, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list local files: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	files := make([]string, 0, len(lines))
+
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		// Parse output format: "    12345 filename"
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			fileName := strings.Join(fields[1:], " ")
+			files = append(files, fileName)
+		}
+	}
+
+	return files, nil
+}
+
+// GetLocalDirSize gets the size of a local directory
+func (m *Manager) GetLocalDirSize(localPath string) (int64, error) {
+	args := []string{"size", localPath, "--json"}
+
+	cmd := exec.Command(m.rclonePath, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get directory size: %w", err)
+	}
+
+	// Parse JSON output
+	var result struct {
+		Bytes int64 `json:"bytes"`
+	}
+	
+	if err := json.Unmarshal(output, &result); err != nil {
+		return 0, fmt.Errorf("failed to parse size output: %w", err)
+	}
+
+	return result.Bytes, nil
 }
 
 // ValidateRemoteName validates a remote name
