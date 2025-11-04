@@ -168,3 +168,85 @@ func (i *Installer) VerifyInstallation() error {
 
 	return nil
 }
+
+// CheckRsyncInstalled checks if rsync is installed
+func (i *Installer) CheckRsyncInstalled() bool {
+	_, err := i.executor.LookPath("rsync")
+	return err == nil
+}
+
+// GetRsyncVersion returns the rsync version string
+func (i *Installer) GetRsyncVersion() (string, error) {
+	if !i.CheckRsyncInstalled() {
+		return "", fmt.Errorf("rsync is not installed")
+	}
+
+	cmd := i.executor.Command("rsync", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get rsync version: %w", err)
+	}
+
+	// Parse version from output (first line typically contains version)
+	lines := strings.Split(string(output), "\n")
+	if len(lines) > 0 {
+		return strings.TrimSpace(lines[0]), nil
+	}
+
+	return "", fmt.Errorf("could not parse rsync version")
+}
+
+// GetRsyncPath returns the full path to rsync binary
+func (i *Installer) GetRsyncPath() (string, error) {
+	path, err := i.executor.LookPath("rsync")
+	if err != nil {
+		return "", fmt.Errorf("rsync not found in PATH: %w", err)
+	}
+
+	// Resolve any symlinks
+	resolvedPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		// If we can't resolve symlinks, return the original path
+		return path, nil
+	}
+
+	return resolvedPath, nil
+}
+
+// InstallRsync installs rsync via Homebrew
+func (i *Installer) InstallRsync() error {
+	if !i.CheckHomebrewInstalled() {
+		return fmt.Errorf("homebrew must be installed first")
+	}
+
+	cmd := i.executor.Command("brew", "install", "rsync")
+	cmd.Stdout = i.stdout
+	cmd.Stderr = i.stderr
+
+	if err := i.executor.RunCommand(cmd); err != nil {
+		return fmt.Errorf("failed to install rsync: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateRsync updates rsync via Homebrew
+func (i *Installer) UpdateRsync() error {
+	if !i.CheckHomebrewInstalled() {
+		return fmt.Errorf("homebrew must be installed first")
+	}
+
+	if !i.CheckRsyncInstalled() {
+		return fmt.Errorf("rsync is not installed, use InstallRsync instead")
+	}
+
+	cmd := i.executor.Command("brew", "upgrade", "rsync")
+	cmd.Stdout = i.stdout
+	cmd.Stderr = i.stderr
+
+	if err := i.executor.RunCommand(cmd); err != nil {
+		return fmt.Errorf("failed to update rsync: %w", err)
+	}
+
+	return nil
+}
