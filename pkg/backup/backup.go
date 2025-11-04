@@ -11,17 +11,19 @@ import (
 	"github.com/andreisuslov/cloud-sync/internal/logs"
 	"github.com/andreisuslov/cloud-sync/internal/rclone"
 	"github.com/andreisuslov/cloud-sync/internal/scripts"
+	"github.com/andreisuslov/cloud-sync/internal/syncconfig"
 )
 
 // Manager provides a high-level API for backup operations
 type Manager struct {
-	installer *installer.Installer
-	rclone    *rclone.Manager
-	scripts   *scripts.Generator
-	launchd   *launchd.Manager
-	logs      *logs.Manager
-	lockfile  *lockfile.Manager
-	config    *Config
+	installer  *installer.Installer
+	rclone     *rclone.Manager
+	scripts    *scripts.Generator
+	launchd    *launchd.Manager
+	logs       *logs.Manager
+	lockfile   *lockfile.Manager
+	syncconfig *syncconfig.Manager
+	config     *Config
 }
 
 // Config holds the backup configuration
@@ -57,14 +59,19 @@ func NewManager(config *Config) (*Manager, error) {
 		config.RclonePath = "rclone" // Will be resolved via PATH
 	}
 
+	// Initialize sync config manager
+	syncConfigPath := filepath.Join(config.HomeDir, ".config", "cloud-sync", "sync-config.json")
+	syncConfigMgr := syncconfig.NewManager(syncConfigPath)
+
 	return &Manager{
-		installer: installer.NewInstaller(),
-		rclone:    rclone.NewManager(config.RclonePath),
-		scripts:   scripts.NewGenerator(),
-		launchd:   launchd.NewManager(config.Username),
-		logs:      logs.NewManager(config.LogDir),
-		lockfile:  lockfile.NewManager(config.LogDir),
-		config:    config,
+		installer:  installer.NewInstaller(),
+		rclone:     rclone.NewManager(config.RclonePath),
+		scripts:    scripts.NewGenerator(),
+		launchd:    launchd.NewManager(config.Username),
+		logs:       logs.NewManager(config.LogDir),
+		lockfile:   lockfile.NewManager(config.LogDir),
+		syncconfig: syncConfigMgr,
+		config:     config,
 	}, nil
 }
 
@@ -198,6 +205,89 @@ func (m *Manager) GetRecentTransfers(count int) ([]logs.Transfer, error) {
 // RemoveLockfile removes the backup lockfile
 func (m *Manager) RemoveLockfile() error {
 	return m.lockfile.ForceRemove()
+}
+
+// AddSyncPair adds a new local folder to remote sync configuration
+func (m *Manager) AddSyncPair(name, localPath, remoteName, remotePath, direction string) error {
+	pair := syncconfig.SyncPair{
+		Name:       name,
+		LocalPath:  localPath,
+		RemoteName: remoteName,
+		RemotePath: remotePath,
+		Direction:  direction,
+		Enabled:    true,
+	}
+
+	return m.syncconfig.AddSyncPair(pair)
+}
+
+// RemoveSyncPair removes a sync pair by name
+func (m *Manager) RemoveSyncPair(name string) error {
+	return m.syncconfig.RemoveSyncPair(name)
+}
+
+// ListSyncPairs returns all configured sync pairs
+func (m *Manager) ListSyncPairs() ([]syncconfig.SyncPair, error) {
+	return m.syncconfig.ListSyncPairs()
+}
+
+// ToggleSyncPair toggles the enabled status of a sync pair
+func (m *Manager) ToggleSyncPair(name string) error {
+	return m.syncconfig.ToggleEnabled(name)
+}
+
+// SyncPair executes a sync operation for a specific sync pair
+func (m *Manager) SyncPair(name string, progress bool, dryRun bool) error {
+	pair, err := m.syncconfig.GetSyncPair(name)
+	if err != nil {
+		return err
+	}
+
+	if !pair.Enabled {
+		return fmt.Errorf("sync pair '%s' is disabled", name)
+	}
+
+	// Validate local path exists
+	if err := syncconfig.ValidateLocalPath(pair.LocalPath); err != nil {
+		return fmt.Errorf("local path validation failed: %w", err)
+	}
+
+	// Execute sync based on direction
+	switch pair.Direction {
+	case "upload":
+		return m.rclone.SyncLocalToRemote(pair.LocalPath, pair.RemoteName, pair.RemotePath, progress, dryRun)
+	case "download":
+		return m.rclone.SyncRemoteToLocal(pair.RemoteName, pair.RemotePath, pair.LocalPath, progress, dryRun)
+	case "bidirectional":
+		// For bidirectional, we'll do upload first, then download
+		// In a production system, you'd want more sophisticated conflict resolution
+		if err := m.rclone.SyncLocalToRemote(pair.LocalPath, pair.RemoteName, pair.RemotePath, progress, dryRun); err != nil {
+			return fmt.Errorf("upload failed: %w", err)
+		}
+		return m.rclone.SyncRemoteToLocal(pair.RemoteName, pair.RemotePath, pair.LocalPath, progress, dryRun)
+	default:
+		return fmt.Errorf("invalid sync direction: %s", pair.Direction)
+	}
+}
+
+// SyncAllEnabled syncs all enabled sync pairs
+func (m *Manager) SyncAllEnabled(progress bool, dryRun bool) error {
+	pairs, err := m.syncconfig.ListEnabledSyncPairs()
+	if err != nil {
+		return err
+	}
+
+	if len(pairs) == 0 {
+		return fmt.Errorf("no enabled sync pairs found")
+	}
+
+	for _, pair := range pairs {
+		if err := m.SyncPair(pair.Name, progress, dryRun); err != nil {
+			return fmt.Errorf("failed to sync '%s': %w", pair.Name, err)
+		}
+	}
+
+	return nil
 }
 
 // validateConfig validates the manager configuration
