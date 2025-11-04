@@ -514,8 +514,6 @@ func (m Model) viewHelp() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
-	b.WriteString(styles.RenderTitle("Help & Documentation"))
-	b.WriteString("\n\n")
 	
 	if m.HelpReady {
 		b.WriteString(m.HelpViewport.View())
