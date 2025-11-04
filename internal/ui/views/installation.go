@@ -130,6 +130,20 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				item := selectedItem.(InstallationItem)
 				return m, m.executeStep(item)
 			}
+
+		case "up", "k":
+			// Wrap around to bottom when at top
+			if m.list.Index() == 0 {
+				m.list.Select(len(m.items) - 1)
+				return m, nil
+			}
+
+		case "down", "j":
+			// Wrap around to top when at bottom
+			if m.list.Index() == len(m.items)-1 {
+				m.list.Select(0)
+				return m, nil
+			}
 		}
 	}
 
@@ -151,7 +165,7 @@ func (m InstallationModel) View() string {
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("\n↑/↓: navigate • enter: execute step • q: quit")
+		Render("\n↑/↓ or j/k: navigate (wrap-around) • enter: execute step • q: quit")
 
 	return style.Render(m.list.View() + helpText)
 }
