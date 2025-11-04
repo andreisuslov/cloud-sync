@@ -30,6 +30,8 @@ build-version:
 .PHONY: install
 install: build
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_DIR)..."
+	@echo "Code signing binary..."
+	@codesign --force --deep --sign - $(BINARY_NAME) 2>/dev/null || true
 	@mkdir -p $(INSTALL_DIR)
 	@cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
 	@chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
