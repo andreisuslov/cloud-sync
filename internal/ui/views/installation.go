@@ -194,14 +194,17 @@ func NewInstallationModel() InstallationModel {
 	mainMenuList := list.New(mainMenuItems, list.NewDefaultDelegate(), 0, 0)
 	mainMenuList.Title = "Installation Menu"
 	mainMenuList.Styles.Title = styles.TitleStyle
+	mainMenuList.SetFilteringEnabled(false)
 
 	locationTypeList := list.New(locationTypeItems, list.NewDefaultDelegate(), 0, 0)
 	locationTypeList.Title = "Set Up a New Location"
 	locationTypeList.Styles.Title = styles.TitleStyle
+	locationTypeList.SetFilteringEnabled(false)
 
 	remoteTypeList := list.New(remoteTypeItems, list.NewDefaultDelegate(), 0, 0)
 	remoteTypeList.Title = "Configure Remote Storage"
 	remoteTypeList.Styles.Title = styles.TitleStyle
+	remoteTypeList.SetFilteringEnabled(false)
 
 	return InstallationModel{
 		installer:        installer.NewInstaller(),
