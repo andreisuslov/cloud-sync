@@ -67,9 +67,29 @@ Plus additional helper scripts:
 
 ### Installation
 
+#### Option 1: Install as `csync` command (Recommended)
+
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/cloud-sync.git
+git clone https://github.com/andreisuslov/cloud-sync.git
+cd cloud-sync
+
+# Install the csync command
+make install
+
+# Add ~/.local/bin to your PATH if not already there
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Now you can run from anywhere
+csync
+```
+
+#### Option 2: Build and run locally
+
+```bash
+# Clone the repository
+git clone https://github.com/andreisuslov/cloud-sync.git
 cd cloud-sync
 
 # Build the application
@@ -81,7 +101,7 @@ go build -o cloud-sync ./cmd/cloud-sync
 
 ### First Time Setup
 
-1. **Launch the app**: Run `./cloud-sync`
+1. **Launch the app**: Run `csync` (or `./cloud-sync` if running locally)
 2. **Installation Wizard**: Follow prompts to install Homebrew and rclone
 3. **Configure Remotes**:
    - Configure source remote using `rclone config` (any supported provider)
@@ -94,7 +114,10 @@ go build -o cloud-sync ./cmd/cloud-sync
 ### Daily Usage
 
 ```bash
-# Run the TUI application
+# Run the TUI application (if installed)
+csync
+
+# Or run locally
 ./cloud-sync
 
 # Navigate with arrow keys
@@ -110,6 +133,39 @@ go build -o cloud-sync ./cmd/cloud-sync
 - **[API Reference](docs/api.md)**: Developer documentation *(coming soon)*
 
 ## 🧪 Development
+
+### Makefile Commands
+
+The project includes a Makefile for common development tasks:
+
+```bash
+# Build the csync binary
+make build
+
+# Install csync to ~/.local/bin
+make install
+
+# Uninstall csync
+make uninstall
+
+# Run tests
+make test
+
+# Run tests with coverage
+make test-coverage
+
+# Format code
+make fmt
+
+# Lint code
+make lint
+
+# Clean build artifacts
+make clean
+
+# Show all available commands
+make help
+```
 
 ### Project Structure
 
