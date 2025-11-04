@@ -61,7 +61,7 @@ func (m SyncPairsModel) Init() tea.Cmd {
 }
 
 // Update handles messages for the sync pairs view
-func (m SyncPairsModel) Update(msg tea.Msg) (SyncPairsModel, tea.Cmd) {
+func (m SyncPairsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -254,7 +254,7 @@ func (m SyncPairsModel) renderFooter() string {
 }
 
 // handleEnter handles the Enter key press
-func (m SyncPairsModel) handleEnter() (SyncPairsModel, tea.Cmd) {
+func (m SyncPairsModel) handleEnter() (tea.Model, tea.Cmd) {
 	switch m.currentStep {
 	case SyncPairsStepAddName:
 		m.newPair.Name = m.textInput.Value()
@@ -320,7 +320,7 @@ func (m SyncPairsModel) handleEnter() (SyncPairsModel, tea.Cmd) {
 }
 
 // handleDelete handles deleting a sync pair
-func (m SyncPairsModel) handleDelete() (SyncPairsModel, tea.Cmd) {
+func (m SyncPairsModel) handleDelete() (tea.Model, tea.Cmd) {
 	// For simplicity, delete the first one
 	// In a real implementation, you'd use a list selector
 	if len(m.syncPairs) > 0 {
@@ -334,7 +334,7 @@ func (m SyncPairsModel) handleDelete() (SyncPairsModel, tea.Cmd) {
 }
 
 // handleToggle handles toggling a sync pair's enabled status
-func (m SyncPairsModel) handleToggle() (SyncPairsModel, tea.Cmd) {
+func (m SyncPairsModel) handleToggle() (tea.Model, tea.Cmd) {
 	// For simplicity, toggle the first one
 	// In a real implementation, you'd use a list selector
 	if len(m.syncPairs) > 0 {
