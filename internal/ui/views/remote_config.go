@@ -26,6 +26,7 @@ const (
 type RemoteConfigModel struct {
 	currentStep   RemoteConfigStep
 	remoteType    string // "b2" or "s3"
+	providerName  string // Display name of the provider
 	inputs        []textinput.Model
 	focusIndex    int
 	width         int
@@ -45,8 +46,43 @@ func NewRemoteConfigModel(configManager *config.Manager) RemoteConfigModel {
 	}
 }
 
+// NewRemoteConfigModelWithProvider creates a new remote configuration model with a specific provider
+func NewRemoteConfigModelWithProvider(configManager *config.Manager, providerName string) RemoteConfigModel {
+	model := RemoteConfigModel{
+		configManager: configManager,
+		providerName:  providerName,
+		inputs:        make([]textinput.Model, 0),
+	}
+	
+	// Determine the configuration step based on provider
+	switch providerName {
+	case "Backblaze B2":
+		model.currentStep = RemoteStepB2Config
+		model.remoteType = "b2"
+	case "Scaleway Object Storage":
+		model.currentStep = RemoteStepScalewayConfig
+		model.remoteType = "s3"
+	default:
+		// For other providers, we'll use a generic configuration
+		// For now, default to S3-compatible configuration
+		model.currentStep = RemoteStepScalewayConfig
+		model.remoteType = "s3"
+	}
+	
+	return model
+}
+
 // Init initializes the remote configuration wizard
 func (m RemoteConfigModel) Init() tea.Cmd {
+	// If we have a provider name set, initialize inputs automatically
+	if m.providerName != "" {
+		switch m.currentStep {
+		case RemoteStepB2Config:
+			return m.initB2Inputs()
+		case RemoteStepScalewayConfig:
+			return m.initScalewayInputs()
+		}
+	}
 	return nil
 }
 
@@ -208,7 +244,30 @@ func (m RemoteConfigModel) renderB2Config() string {
 func (m RemoteConfigModel) renderScalewayConfig() string {
 	var b strings.Builder
 	
-	b.WriteString(styles.RenderInfo("Scaleway Object Storage Configuration"))
+	// Use provider name if set, otherwise default to Scaleway
+	title := "Scaleway Object Storage Configuration"
+	helpURL := "https://console.scaleway.com/"
+	
+	if m.providerName != "" {
+		title = fmt.Sprintf("%s Configuration", m.providerName)
+		// Provide help URLs for known providers
+		switch m.providerName {
+		case "Amazon S3":
+			helpURL = "https://aws.amazon.com/s3/"
+		case "Google Cloud Storage":
+			helpURL = "https://cloud.google.com/storage"
+		case "Microsoft Azure Blob Storage":
+			helpURL = "https://azure.microsoft.com/en-us/services/storage/blobs/"
+		case "DigitalOcean Spaces":
+			helpURL = "https://www.digitalocean.com/products/spaces"
+		case "Wasabi":
+			helpURL = "https://wasabi.com/"
+		default:
+			helpURL = "https://rclone.org/docs/"
+		}
+	}
+	
+	b.WriteString(styles.RenderInfo(title))
 	b.WriteString("\n\n")
 	
 	for i, input := range m.inputs {
@@ -219,7 +278,7 @@ func (m RemoteConfigModel) renderScalewayConfig() string {
 	}
 	
 	b.WriteString("\n\n")
-	b.WriteString(styles.RenderMuted("Get your credentials from: https://console.scaleway.com/"))
+	b.WriteString(styles.RenderMuted(fmt.Sprintf("Get your credentials from: %s", helpURL)))
 	
 	return b.String()
 }
@@ -379,10 +438,16 @@ func (m RemoteConfigModel) handleEnter() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Use provider name if set, otherwise default to Scaleway
+		providerName := "Scaleway"
+		if m.providerName != "" {
+			providerName = m.providerName
+		}
+		
 		m.remoteConfig = config.RemoteConfig{
 			Name:           name,
 			Type:           "s3",
-			Provider:       "Scaleway",
+			Provider:       providerName,
 			AccountID:      accessKey,
 			ApplicationKey: secretKey,
 			Region:         region,

@@ -130,15 +130,63 @@ func NewInstallationModel() InstallationModel {
 		},
 	}
 
-	// Create remote type menu items
+	// Create remote type menu items - comprehensive list of rclone providers
 	remoteTypeItems := []list.Item{
 		InstallMenuItem{
 			title:       "Backblaze B2",
-			description: "Configure Backblaze B2 cloud storage",
+			description: "High-performance cloud storage",
 		},
 		InstallMenuItem{
 			title:       "Amazon S3",
-			description: "Configure Amazon S3 cloud storage",
+			description: "AWS Simple Storage Service",
+		},
+		InstallMenuItem{
+			title:       "Google Cloud Storage",
+			description: "GCS object storage",
+		},
+		InstallMenuItem{
+			title:       "Microsoft Azure Blob Storage",
+			description: "Azure cloud storage",
+		},
+		InstallMenuItem{
+			title:       "Dropbox",
+			description: "Cloud file storage and sharing",
+		},
+		InstallMenuItem{
+			title:       "Google Drive",
+			description: "Google's cloud storage service",
+		},
+		InstallMenuItem{
+			title:       "OneDrive",
+			description: "Microsoft cloud storage",
+		},
+		InstallMenuItem{
+			title:       "Scaleway Object Storage",
+			description: "European cloud storage provider",
+		},
+		InstallMenuItem{
+			title:       "DigitalOcean Spaces",
+			description: "S3-compatible object storage",
+		},
+		InstallMenuItem{
+			title:       "Wasabi",
+			description: "Hot cloud storage",
+		},
+		InstallMenuItem{
+			title:       "SFTP",
+			description: "SSH File Transfer Protocol",
+		},
+		InstallMenuItem{
+			title:       "FTP",
+			description: "File Transfer Protocol",
+		},
+		InstallMenuItem{
+			title:       "WebDAV",
+			description: "Web Distributed Authoring and Versioning",
+		},
+		InstallMenuItem{
+			title:       "Other / Custom",
+			description: "Configure any other rclone-supported provider",
 		},
 	}
 
@@ -662,19 +710,42 @@ func (m InstallationModel) handleRemoteTypeSelection() (tea.Model, tea.Cmd) {
 	}
 
 	menuItem := selected.(InstallMenuItem)
-	title := menuItem.Title()
+	providerName := menuItem.Title()
 
-	switch title {
-	case "Backblaze B2":
-		m.currentStep = StepConfigureB2Remote
-		return m, m.initB2Config()
-	case "Amazon S3":
-		m.currentStep = StepConfigureS3Remote
-		// TODO: Initialize S3 config view
-		return m, nil
+	// Map provider display names to rclone types and configuration (for future use)
+	_ = map[string]struct {
+		rcloneType string
+		step       InstallationStep
+	}{
+		"Backblaze B2":                 {rcloneType: "b2", step: StepConfigureB2Remote},
+		"Amazon S3":                    {rcloneType: "s3", step: StepConfigureS3Remote},
+		"Scaleway Object Storage":      {rcloneType: "s3", step: StepConfigureScalewayRemote},
+		"Google Cloud Storage":         {rcloneType: "google cloud storage", step: StepConfigureRemoteLocation},
+		"Microsoft Azure Blob Storage": {rcloneType: "azureblob", step: StepConfigureRemoteLocation},
+		"Dropbox":                      {rcloneType: "dropbox", step: StepConfigureRemoteLocation},
+		"Google Drive":                 {rcloneType: "drive", step: StepConfigureRemoteLocation},
+		"OneDrive":                     {rcloneType: "onedrive", step: StepConfigureRemoteLocation},
+		"DigitalOcean Spaces":          {rcloneType: "s3", step: StepConfigureRemoteLocation},
+		"Wasabi":                       {rcloneType: "s3", step: StepConfigureRemoteLocation},
+		"SFTP":                         {rcloneType: "sftp", step: StepConfigureRemoteLocation},
+		"FTP":                          {rcloneType: "ftp", step: StepConfigureRemoteLocation},
+		"WebDAV":                       {rcloneType: "webdav", step: StepConfigureRemoteLocation},
+		"Other / Custom":               {rcloneType: "custom", step: StepConfigureRemoteLocation},
 	}
 
-	return m, nil
+	// For now, handle the providers we have specific configuration for
+	switch providerName {
+	case "Backblaze B2":
+		m.currentStep = StepConfigureB2Remote
+		return m, m.initRemoteConfig(providerName)
+	case "Scaleway Object Storage":
+		m.currentStep = StepConfigureScalewayRemote
+		return m, m.initRemoteConfig(providerName)
+	default:
+		// For all other providers, initialize a generic remote config
+		m.currentStep = StepConfigureRemoteLocation
+		return m, m.initRemoteConfig(providerName)
+	}
 }
 
 // checkHomebrew returns a command to check if Homebrew is installed
@@ -782,20 +853,22 @@ func (m InstallationModel) createDirectories() tea.Cmd {
 	}
 }
 
-// initB2Config initializes the B2 configuration sub-view
-func (m InstallationModel) initB2Config() tea.Cmd {
+// initRemoteConfig initializes the remote configuration sub-view for any provider
+func (m InstallationModel) initRemoteConfig(providerName string) tea.Cmd {
 	return func() tea.Msg {
-		m.activeSubView = NewRemoteConfigModel(m.configManager)
+		m.activeSubView = NewRemoteConfigModelWithProvider(m.configManager, providerName)
 		return m.activeSubView.Init()
 	}
 }
 
-// initScalewayConfig initializes the Scaleway configuration sub-view
+// initB2Config initializes the B2 configuration sub-view (legacy)
+func (m InstallationModel) initB2Config() tea.Cmd {
+	return m.initRemoteConfig("Backblaze B2")
+}
+
+// initScalewayConfig initializes the Scaleway configuration sub-view (legacy)
 func (m InstallationModel) initScalewayConfig() tea.Cmd {
-	return func() tea.Msg {
-		m.activeSubView = NewRemoteConfigModel(m.configManager)
-		return m.activeSubView.Init()
-	}
+	return m.initRemoteConfig("Scaleway Object Storage")
 }
 
 // initSyncConfig initializes the sync configuration sub-view
