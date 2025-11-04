@@ -98,8 +98,8 @@ func (i InstallationItem) Title() string       { return i.title }
 func (i InstallationItem) Description() string { return i.description }
 func (i InstallationItem) FilterValue() string { return i.title }
 
-// InstallationModel represents the installation view state
-type InstallationModel struct {
+// ConfigurationSetupModel represents the configuration setup view state
+type ConfigurationSetupModel struct {
 	list         list.Model
 	items        []InstallationItem
 	currentStep  int
@@ -113,42 +113,37 @@ type InstallationModel struct {
 	showOutput   bool     // Whether to show the output box
 }
 
-// NewInstallationModel creates a new installation model
-func NewInstallationModel() InstallationModel {
+// NewConfigurationSetupModel creates a new configuration setup model
+func NewConfigurationSetupModel() ConfigurationSetupModel {
 	items := []InstallationItem{
 		{
-			title:       "1. Check rsync Installation",
-			description: "Verify that rsync is available on your system",
+			title:       "1. Check rclone Installation",
+			description: "Verify that rclone is available on your system",
 			status:      StatusPending,
 		},
 		{
-			title:       "2. Check rsync Version",
-			description: "Ensure rsync version is compatible (≥3.0)",
+			title:       "2. Check rclone Version",
+			description: "Ensure rclone version is compatible (≥1.50)",
 			status:      StatusPending,
 		},
 		{
-			title:       "3. Install/Update rsync",
-			description: "Install latest rsync version via Homebrew if needed",
+			title:       "3. Install/Update rclone",
+			description: "Install latest rclone version via Homebrew if needed",
 			status:      StatusPending,
 		},
 		{
-			title:       "4. Verify SSH Access",
-			description: "Test SSH connectivity to remote hosts",
+			title:       "4. Manage Remotes",
+			description: "Setup cloud storage remotes (rclone config)",
 			status:      StatusPending,
 		},
 		{
-			title:       "5. Setup SSH Keys",
-			description: "Configure passwordless SSH authentication",
+			title:       "5. List Configured Remotes",
+			description: "View all configured cloud storage remotes",
 			status:      StatusPending,
 		},
 		{
-			title:       "6. Configure rsync Profiles",
-			description: "Setup source and destination paths",
-			status:      StatusPending,
-		},
-		{
-			title:       "7. Test rsync Connection",
-			description: "Verify rsync can sync with remote host",
+			title:       "6. Test Remote Connection",
+			description: "Verify connectivity to configured remotes",
 			status:      StatusPending,
 		},
 	}
@@ -161,11 +156,11 @@ func NewInstallationModel() InstallationModel {
 
 	// Set reasonable default dimensions (will be updated on first WindowSizeMsg)
 	l := list.New(listItems, list.NewDefaultDelegate(), 80, 20)
-	l.Title = "Installation & Setup"
+	l.Title = "Configuration (rclone config)"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 
-	return InstallationModel{
+	return ConfigurationSetupModel{
 		list:         l,
 		items:        items,
 		currentStep:  0,
@@ -177,14 +172,14 @@ func NewInstallationModel() InstallationModel {
 	}
 }
 
-// Init initializes the installation model
-func (m InstallationModel) Init() tea.Cmd {
+// Init initializes the configuration setup model
+func (m ConfigurationSetupModel) Init() tea.Cmd {
 	// Request window size on initialization
 	return tea.ClearScreen
 }
 
-// Update handles messages for the installation view
-func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// Update handles messages for the configuration setup view
+func (m ConfigurationSetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -269,10 +264,10 @@ func (m InstallationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// View renders the installation view
-func (m InstallationModel) View() string {
+// View renders the configuration setup view
+func (m ConfigurationSetupModel) View() string {
 	if m.quitting {
-		return "Installation cancelled.\n"
+		return "Configuration cancelled.\n"
 	}
 
 	helpText := helpStyle.Render("\n↑/↓ or j/k: navigate (wrap-around) • enter: execute step • q: quit")
@@ -311,8 +306,8 @@ func (m InstallationModel) View() string {
 	return mainContent
 }
 
-// executeStep executes a specific installation step
-func (m InstallationModel) executeStep(item InstallationItem) tea.Cmd {
+// executeStep executes a specific configuration step
+func (m ConfigurationSetupModel) executeStep(item InstallationItem) tea.Cmd {
 	return func() tea.Msg {
 		// Add panic recovery to prevent UI crashes
 		defer func() {
@@ -328,12 +323,18 @@ func (m InstallationModel) executeStep(item InstallationItem) tea.Cmd {
 
 		// Determine which step to execute based on title
 		switch {
-		case strings.Contains(item.title, "Check rsync Installation"):
-			return m.checkRsyncInstallation(item)
-		case strings.Contains(item.title, "Check rsync Version"):
-			return m.checkRsyncVersion(item)
-		case strings.Contains(item.title, "Install/Update rsync"):
-			return m.installOrUpdateRsync(item)
+		case strings.Contains(item.title, "Check rclone Installation"):
+			return m.checkRcloneInstallation(item)
+		case strings.Contains(item.title, "Check rclone Version"):
+			return m.checkRcloneVersion(item)
+		case strings.Contains(item.title, "Install/Update rclone"):
+			return m.installOrUpdateRclone(item)
+		case strings.Contains(item.title, "Manage Remotes"):
+			return m.manageRemotes(item)
+		case strings.Contains(item.title, "List Configured Remotes"):
+			return m.listRemotes(item)
+		case strings.Contains(item.title, "Test Remote Connection"):
+			return m.testRemoteConnection(item)
 		default:
 			return installStepCompleteMsg{
 				step:    item.title,
@@ -344,51 +345,55 @@ func (m InstallationModel) executeStep(item InstallationItem) tea.Cmd {
 	}
 }
 
-// checkRsyncInstallation checks if rsync is installed
-func (m InstallationModel) checkRsyncInstallation(item InstallationItem) installStepCompleteMsg {
-	if m.installer.CheckRsyncInstalled() {
-		path, err := m.installer.GetRsyncPath()
+// checkRcloneInstallation checks if rclone is installed
+func (m ConfigurationSetupModel) checkRcloneInstallation(item InstallationItem) installStepCompleteMsg {
+	if m.installer.CheckRcloneInstalled() {
+		path, err := m.installer.GetRclonePath()
 		if err != nil {
 			return installStepCompleteMsg{
 				step:    item.title,
 				success: true,
-				message: "✓ rsync is installed",
+				message: "✓ rclone is installed",
 			}
 		}
+		output := fmt.Sprintf("rclone binary location:\n%s", path)
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: true,
-			message: fmt.Sprintf("✓ rsync is installed at: %s", path),
+			message: fmt.Sprintf("✓ rclone is installed"),
+			output:  output,
 		}
 	}
 	return installStepCompleteMsg{
 		step:    item.title,
 		success: false,
-		err:     fmt.Errorf("rsync is not installed"),
-		message: "✗ rsync is not installed",
+		err:     fmt.Errorf("rclone is not installed"),
+		message: "✗ rclone is not installed",
 	}
 }
 
-// checkRsyncVersion checks the rsync version
-func (m InstallationModel) checkRsyncVersion(item InstallationItem) installStepCompleteMsg {
-	version, err := m.installer.GetRsyncVersion()
+// checkRcloneVersion checks the rclone version
+func (m ConfigurationSetupModel) checkRcloneVersion(item InstallationItem) installStepCompleteMsg {
+	version, output, err := m.installer.GetRcloneVersionWithOutput()
 	if err != nil {
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: false,
 			err:     err,
-			message: fmt.Sprintf("✗ Failed to get rsync version: %v", err),
+			message: fmt.Sprintf("✗ Failed to get rclone version: %v", err),
+			output:  output,
 		}
 	}
 	return installStepCompleteMsg{
 		step:    item.title,
 		success: true,
 		message: fmt.Sprintf("✓ %s", version),
+		output:  output,
 	}
 }
 
-// installOrUpdateRsync installs or updates rsync
-func (m InstallationModel) installOrUpdateRsync(item InstallationItem) installStepCompleteMsg {
+// installOrUpdateRclone installs or updates rclone
+func (m ConfigurationSetupModel) installOrUpdateRclone(item InstallationItem) installStepCompleteMsg {
 	if !m.installer.CheckHomebrewInstalled() {
 		return installStepCompleteMsg{
 			step:    item.title,
@@ -398,67 +403,164 @@ func (m InstallationModel) installOrUpdateRsync(item InstallationItem) installSt
 		}
 	}
 
-	if m.installer.CheckRsyncInstalled() {
-		// rsync is installed, check if it's via Homebrew
-		if m.installer.IsRsyncInstalledViaHomebrew() {
-			// Try to update Homebrew version
-			output, err := m.installer.UpdateRsyncWithOutput()
-			if err != nil {
+	if m.installer.CheckRcloneInstalled() {
+		// rclone is installed, try to update it
+		output, err := m.installer.UpdateRcloneWithOutput()
+		if err != nil {
+			// Update might fail if already up-to-date
+			if strings.Contains(err.Error(), "already installed") {
 				return installStepCompleteMsg{
 					step:    item.title,
-					success: false,
-					err:     err,
-					message: fmt.Sprintf("✗ Failed to update rsync: %v", err),
+					success: true,
+					message: "✓ rclone is already up-to-date",
 					output:  output,
 				}
 			}
 			return installStepCompleteMsg{
 				step:    item.title,
-				success: true,
-				message: "✓ rsync updated successfully via Homebrew",
-				output:  output,
-			}
-		}
-
-		// System rsync detected, offer to install Homebrew version
-		output, err := m.installer.InstallRsyncWithOutput()
-		if err != nil {
-			return installStepCompleteMsg{
-				step:    item.title,
 				success: false,
 				err:     err,
-				message: fmt.Sprintf("✗ System rsync detected. Failed to install Homebrew version: %v", err),
+				message: fmt.Sprintf("✗ Failed to update rclone: %v", err),
 				output:  output,
 			}
 		}
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: true,
-			message: "✓ Homebrew rsync installed (system version still available as fallback)",
+			message: "✓ rclone updated successfully via Homebrew",
 			output:  output,
 		}
 	}
 
-	// rsync is not installed, install it
-	output, err := m.installer.InstallRsyncWithOutput()
+	// rclone is not installed, install it
+	output, err := m.installer.InstallRcloneWithOutput()
 	if err != nil {
 		return installStepCompleteMsg{
 			step:    item.title,
 			success: false,
 			err:     err,
-			message: fmt.Sprintf("✗ Failed to install rsync: %v", err),
+			message: fmt.Sprintf("✗ Failed to install rclone: %v", err),
 			output:  output,
 		}
 	}
 	return installStepCompleteMsg{
 		step:    item.title,
 		success: true,
-		message: "✓ rsync installed successfully via Homebrew",
+		message: "✓ rclone installed successfully via Homebrew",
 		output:  output,
 	}
 }
 
-// installStepCompleteMsg is sent when an installation step completes
+// manageRemotes opens the rclone config interactive wizard
+func (m ConfigurationSetupModel) manageRemotes(item InstallationItem) installStepCompleteMsg {
+	if !m.installer.CheckRcloneInstalled() {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     fmt.Errorf("rclone is not installed"),
+			message: "✗ rclone must be installed first",
+		}
+	}
+
+	output, err := m.installer.RunRcloneConfig()
+	if err != nil {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     err,
+			message: fmt.Sprintf("✗ Failed to run rclone config: %v", err),
+			output:  output,
+		}
+	}
+
+	return installStepCompleteMsg{
+		step:    item.title,
+		success: true,
+		message: "✓ rclone config completed",
+		output:  output,
+	}
+}
+
+// listRemotes lists all configured rclone remotes
+func (m ConfigurationSetupModel) listRemotes(item InstallationItem) installStepCompleteMsg {
+	if !m.installer.CheckRcloneInstalled() {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     fmt.Errorf("rclone is not installed"),
+			message: "✗ rclone must be installed first",
+		}
+	}
+
+	remotes, err := m.installer.ListRcloneRemotes()
+	if err != nil {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     err,
+			message: fmt.Sprintf("✗ Failed to list remotes: %v", err),
+		}
+	}
+
+	if len(remotes) == 0 {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: true,
+			message: "✓ No remotes configured yet. Use 'Manage Remotes' to add one.",
+		}
+	}
+
+	output := fmt.Sprintf("Configured remotes:\n%s", strings.Join(remotes, "\n"))
+	return installStepCompleteMsg{
+		step:    item.title,
+		success: true,
+		message: fmt.Sprintf("✓ Found %d configured remote(s)", len(remotes)),
+		output:  output,
+	}
+}
+
+// testRemoteConnection tests connectivity to a configured remote
+func (m ConfigurationSetupModel) testRemoteConnection(item InstallationItem) installStepCompleteMsg {
+	if !m.installer.CheckRcloneInstalled() {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     fmt.Errorf("rclone is not installed"),
+			message: "✗ rclone must be installed first",
+		}
+	}
+
+	remotes, err := m.installer.ListRcloneRemotes()
+	if err != nil || len(remotes) == 0 {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			message: "✗ No remotes configured. Use 'Manage Remotes' first.",
+		}
+	}
+
+	// Test the first remote
+	firstRemote := strings.TrimSuffix(remotes[0], ":")
+	output, err := m.installer.TestRcloneRemote(firstRemote)
+	if err != nil {
+		return installStepCompleteMsg{
+			step:    item.title,
+			success: false,
+			err:     err,
+			message: fmt.Sprintf("✗ Failed to connect to remote '%s': %v", firstRemote, err),
+			output:  output,
+		}
+	}
+
+	return installStepCompleteMsg{
+		step:    item.title,
+		success: true,
+		message: fmt.Sprintf("✓ Successfully connected to remote '%s'", firstRemote),
+		output:  output,
+	}
+}
+
+// installStepCompleteMsg is sent when a configuration step completes
 type installStepCompleteMsg struct {
 	step    string
 	success bool
@@ -468,7 +570,7 @@ type installStepCompleteMsg struct {
 }
 
 // UpdateStepStatus updates the status of a specific step
-func (m *InstallationModel) UpdateStepStatus(stepIndex int, status InstallStatus) {
+func (m *ConfigurationSetupModel) UpdateStepStatus(stepIndex int, status InstallStatus) {
 	if stepIndex >= 0 && stepIndex < len(m.items) {
 		m.items[stepIndex].status = status
 		
