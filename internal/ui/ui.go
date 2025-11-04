@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -14,8 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/andreisuslov/cloud-sync/internal/launchd"
-	"github.com/andreisuslov/cloud-sync/internal/logs"
 	"github.com/andreisuslov/cloud-sync/internal/ui/styles"
 	"github.com/andreisuslov/cloud-sync/internal/ui/views"
 )
