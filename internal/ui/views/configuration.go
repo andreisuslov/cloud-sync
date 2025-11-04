@@ -173,9 +173,14 @@ This wizard will help you:
 3. Select the destination bucket to backup to
 
 Prerequisites:
-• Backblaze B2 account with bucket created
-• Scaleway Object Storage account with bucket created
-• API keys for both services
+• Cloud storage accounts (source and destination)
+• Buckets/containers created on both services
+• API keys or credentials for both services
+
+Supported cloud storage providers include:
+• Backblaze B2, AWS S3, Google Cloud Storage
+• Scaleway, DigitalOcean Spaces, Wasabi
+• Azure Blob Storage, and many more via rclone
 
 Press Enter to begin configuration...`
 
@@ -189,8 +194,11 @@ To configure remotes, run the following in your terminal:
   rclone config
 
 Configure two remotes:
-1. Source remote (e.g., Backblaze B2)
-2. Destination remote (e.g., Scaleway Object Storage)
+1. Source remote (where your data is stored)
+2. Destination remote (where backups will be stored)
+
+Examples: Backblaze B2, AWS S3, Google Cloud Storage,
+Scaleway, DigitalOcean Spaces, Azure Blob, Wasabi, etc.
 
 After configuration, press Enter to continue...`
 		}
