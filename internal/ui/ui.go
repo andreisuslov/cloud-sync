@@ -128,28 +128,8 @@ func NewModel() Model {
 			description: "Install required tools and configure remotes",
 		},
 		MenuItem{
-			title:       "2. Backup Operations",
-			description: "Run manual sync or trigger automated backups",
-		},
-		MenuItem{
-			title:       "3. Log Viewer",
-			description: "View backup logs and transfer history",
-		},
-		MenuItem{
-			title:       "4. LaunchAgent Management",
-			description: "Manage automated backup scheduling",
-		},
-		MenuItem{
-			title:       "5. Maintenance",
-			description: "Remove lockfiles, reset timestamps, clear logs",
-		},
-		MenuItem{
-			title:       "6. Help",
+			title:       "2. Help",
 			description: "View keyboard shortcuts and documentation",
-		},
-		MenuItem{
-			title:       "7. Exit",
-			description: "Exit the application",
 		},
 	}
 
@@ -333,33 +313,6 @@ func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 		m.ActiveSubView = installModel
 		return m, installModel.Init()
 	case strings.HasPrefix(title, "2."):
-		m.State = StateBackupRunning
-		// Initialize backup operations view
-		backupModel := views.NewBackupOpsModel(views.BackupManual, m.Width, m.Height)
-		m.ActiveSubView = backupModel
-		return m, backupModel.Init()
-	case strings.HasPrefix(title, "3."):
-		m.State = StateLogViewer
-		// Initialize log viewer
-		homeDir, _ := os.UserHomeDir()
-		logDir := filepath.Join(homeDir, "Documents", "rclone_logs")
-		logManager := logs.NewManager(logDir)
-		logModel := views.NewLogViewerModel(logManager, views.LogViewAll, m.Width, m.Height)
-		m.ActiveSubView = logModel
-		return m, logModel.Init()
-	case strings.HasPrefix(title, "4."):
-		m.State = StateLaunchdManager
-		// Initialize LaunchAgent manager
-		username := os.Getenv("USER")
-		launchdManager := launchd.NewManager(username)
-		launchdModel := views.NewLaunchdManagerModel(launchdManager, m.Width, m.Height)
-		m.ActiveSubView = launchdModel
-		return m, launchdModel.Init()
-	case strings.HasPrefix(title, "5."):
-		m.State = StateMaintenance
-		m.Message = "Maintenance tools not yet implemented"
-		m.ShowMessage = true
-	case strings.HasPrefix(title, "6."):
 		m.State = StateHelp
 		// Initialize help viewport with content
 		m.HelpViewport = viewport.New(m.Width-4, m.Height-6)
@@ -367,9 +320,6 @@ func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 		m.HelpReady = true
 		// Ensure viewport is at the top
 		m.HelpViewport.GotoTop()
-	case strings.HasPrefix(title, "7."):
-		m.Quitting = true
-		return m, tea.Quit
 	}
 
 	return m, nil
