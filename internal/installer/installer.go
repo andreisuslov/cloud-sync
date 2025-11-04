@@ -230,6 +230,21 @@ func (i *Installer) InstallRsync() error {
 	return nil
 }
 
+// InstallRsyncWithOutput installs rsync via Homebrew and returns the output
+func (i *Installer) InstallRsyncWithOutput() (string, error) {
+	if !i.CheckHomebrewInstalled() {
+		return "", fmt.Errorf("homebrew must be installed first")
+	}
+
+	cmd := i.executor.Command("brew", "install", "rsync")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to install rsync: %w", err)
+	}
+
+	return string(output), nil
+}
+
 // IsRsyncInstalledViaHomebrew checks if rsync was installed via Homebrew
 func (i *Installer) IsRsyncInstalledViaHomebrew() bool {
 	if !i.CheckHomebrewInstalled() {
@@ -266,4 +281,28 @@ func (i *Installer) UpdateRsync() error {
 	}
 
 	return nil
+}
+
+// UpdateRsyncWithOutput updates rsync via Homebrew and returns the output
+func (i *Installer) UpdateRsyncWithOutput() (string, error) {
+	if !i.CheckHomebrewInstalled() {
+		return "", fmt.Errorf("homebrew must be installed first")
+	}
+
+	if !i.CheckRsyncInstalled() {
+		return "", fmt.Errorf("rsync is not installed, use InstallRsync instead")
+	}
+
+	// Check if rsync is managed by Homebrew
+	if !i.IsRsyncInstalledViaHomebrew() {
+		return "", fmt.Errorf("rsync is not installed via Homebrew (system version detected). Use InstallRsync to install Homebrew version")
+	}
+
+	cmd := i.executor.Command("brew", "upgrade", "rsync")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to update rsync: %w", err)
+	}
+
+	return string(output), nil
 }
