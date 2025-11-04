@@ -9,7 +9,10 @@ echo ""
 # Use the Makefile install target which builds and installs to ~/.local/bin
 make install
 
+# Remove extended attributes that may cause macOS to kill the binary
+echo "Removing extended attributes..."
+xattr -cr ~/.local/bin/csync 2>/dev/null || true
+
 echo ""
 echo "✅ Done! You can now use 'csync' from anywhere."
 echo ""
-
