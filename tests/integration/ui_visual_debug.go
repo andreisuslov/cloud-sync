@@ -2,11 +2,9 @@ package integration
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 )
 
 // VisualDebugSession runs the actual cloud-sync binary in a PTY and captures output
