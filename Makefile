@@ -33,6 +33,7 @@ install: build
 	@mkdir -p $(INSTALL_DIR)
 	@cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
 	@chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+	@xattr -cr $(INSTALL_DIR)/$(BINARY_NAME) 2>/dev/null || true
 	@echo "✓ Installed $(BINARY_NAME) to $(INSTALL_DIR)"
 	@echo ""
 	@echo "Make sure $(INSTALL_DIR) is in your PATH."
