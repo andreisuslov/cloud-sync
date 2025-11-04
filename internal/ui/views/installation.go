@@ -103,20 +103,7 @@ func NewInstallationModel() InstallationModel {
 	syncConfigMgr, _ := syncconfig.NewDefaultManager()
 
 	// Create main menu items
-	mainMenuItems := []list.Item{
-		InstallMenuItem{
-			title:       "Install and set up required tools",
-			description: "Install Homebrew, rclone, and create necessary directories",
-		},
-		InstallMenuItem{
-			title:       "Set up a new location",
-			description: "Configure a local folder or remote storage location",
-		},
-		InstallMenuItem{
-			title:       "View existing locations",
-			description: "See all configured remote and local sync locations",
-		},
-	}
+	mainMenuItems := []list.Item{}
 
 	// Create location type menu items
 	locationTypeItems := []list.Item{
