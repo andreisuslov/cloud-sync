@@ -31,7 +31,7 @@ func TestNewDefaultManager(t *testing.T) {
 	}
 }
 
-func TestConfigExists(t *testing.T) {
+func TestSyncConfigExists(t *testing.T) {
 	// Create temporary config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "sync-config.json")
