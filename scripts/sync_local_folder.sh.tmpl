@@ -1,0 +1,113 @@
+#!/bin/zsh
+
+# Sync local folder with remote storage
+# Usage: sync_local_folder.sh <sync-pair-name> [--dry-run]
+
+SYNC_PAIR_NAME="$1"
+DRY_RUN_FLAG=""
+
+if [[ "$2" == "--dry-run" ]]; then
+    DRY_RUN_FLAG="--dry-run"
+fi
+
+# Configuration
+CONFIG_FILE="{{.HomeDir}}/.config/cloud-sync/sync-config.json"
+LOG_DIR="{{.LogDir}}"
+RCLONE_PATH="{{.RclonePath}}"
+
+# Check if sync pair name is provided
+if [[ -z "$SYNC_PAIR_NAME" ]]; then
+    echo "Error: Sync pair name is required"
+    echo "Usage: $0 <sync-pair-name> [--dry-run]"
+    exit 1
+fi
+
+# Check if config file exists
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "Error: Configuration file not found: $CONFIG_FILE"
+    exit 1
+fi
+
+# Parse sync pair from config (simplified - in production use jq or similar)
+# For now, this is a template that would need to be generated per sync pair
+# or use a more sophisticated JSON parser
+
+# Example sync pair configuration (to be replaced by actual config parsing)
+LOCAL_PATH="{{.LocalPath}}"
+REMOTE_NAME="{{.RemoteName}}"
+REMOTE_PATH="{{.RemotePath}}"
+DIRECTION="{{.Direction}}"
+
+# Validate local path exists
+if [[ ! -d "$LOCAL_PATH" ]]; then
+    echo "Error: Local path does not exist: $LOCAL_PATH"
+    exit 1
+fi
+
+# Build log file path
+LOG_FILE="$LOG_DIR/sync_${SYNC_PAIR_NAME}_$(date +%Y%m%d_%H%M%S).log"
+
+# Build rclone command based on direction
+case "$DIRECTION" in
+    "upload")
+        echo "Syncing local → remote: $LOCAL_PATH → $REMOTE_NAME:$REMOTE_PATH"
+        RCLONE_CMD="$RCLONE_PATH sync $LOCAL_PATH $REMOTE_NAME:$REMOTE_PATH"
+        ;;
+    "download")
+        echo "Syncing remote → local: $REMOTE_NAME:$REMOTE_PATH → $LOCAL_PATH"
+        RCLONE_CMD="$RCLONE_PATH sync $REMOTE_NAME:$REMOTE_PATH $LOCAL_PATH"
+        ;;
+    "bidirectional")
+        echo "Syncing bidirectional: $LOCAL_PATH ↔ $REMOTE_NAME:$REMOTE_PATH"
+        # First upload, then download (simple approach)
+        RCLONE_CMD_UP="$RCLONE_PATH sync $LOCAL_PATH $REMOTE_NAME:$REMOTE_PATH"
+        RCLONE_CMD_DOWN="$RCLONE_PATH sync $REMOTE_NAME:$REMOTE_PATH $LOCAL_PATH"
+        ;;
+    *)
+        echo "Error: Invalid sync direction: $DIRECTION"
+        exit 1
+        ;;
+esac
+
+# Add common rclone flags
+RCLONE_FLAGS="--config {{.HomeDir}}/.config/rclone/rclone.conf --fast-list -v -P"
+
+if [[ -n "$DRY_RUN_FLAG" ]]; then
+    RCLONE_FLAGS="$RCLONE_FLAGS $DRY_RUN_FLAG"
+    echo "DRY RUN MODE - No changes will be made"
+fi
+
+# Execute sync
+if [[ "$DIRECTION" == "bidirectional" ]]; then
+    echo "Step 1/2: Uploading changes..."
+    eval "$RCLONE_CMD_UP $RCLONE_FLAGS" 2>&1 | tee -a "$LOG_FILE"
+    UPLOAD_EXIT=$?
+    
+    if [[ $UPLOAD_EXIT -eq 0 ]]; then
+        echo "Step 2/2: Downloading changes..."
+        eval "$RCLONE_CMD_DOWN $RCLONE_FLAGS" 2>&1 | tee -a "$LOG_FILE"
+        DOWNLOAD_EXIT=$?
+        
+        if [[ $DOWNLOAD_EXIT -eq 0 ]]; then
+            echo "✓ Bidirectional sync completed successfully"
+            exit 0
+        else
+            echo "✗ Download failed with exit code: $DOWNLOAD_EXIT"
+            exit $DOWNLOAD_EXIT
+        fi
+    else
+        echo "✗ Upload failed with exit code: $UPLOAD_EXIT"
+        exit $UPLOAD_EXIT
+    fi
+else
+    eval "$RCLONE_CMD $RCLONE_FLAGS" 2>&1 | tee -a "$LOG_FILE"
+    EXIT_CODE=$?
+    
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        echo "✓ Sync completed successfully"
+    else
+        echo "✗ Sync failed with exit code: $EXIT_CODE"
+    fi
+    
+    exit $EXIT_CODE
+fi

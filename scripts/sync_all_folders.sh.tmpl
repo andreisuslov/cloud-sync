@@ -1,0 +1,149 @@
+#!/bin/zsh
+
+# Sync all enabled local folders with their remote storage
+# Usage: sync_all_folders.sh [--dry-run]
+
+DRY_RUN_FLAG=""
+
+if [[ "$1" == "--dry-run" ]]; then
+    DRY_RUN_FLAG="--dry-run"
+    echo "DRY RUN MODE - No changes will be made"
+fi
+
+# Configuration
+CONFIG_FILE="{{.HomeDir}}/.config/cloud-sync/sync-config.json"
+LOG_DIR="{{.LogDir}}"
+RCLONE_PATH="{{.RclonePath}}"
+SYNC_SCRIPT="{{.BinDir}}/sync_local_folder.sh"
+
+# Check if config file exists
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "Error: Configuration file not found: $CONFIG_FILE"
+    exit 1
+fi
+
+# Check if jq is installed for JSON parsing
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required for parsing configuration"
+    echo "Install with: brew install jq"
+    exit 1
+fi
+
+# Create log directory if it doesn't exist
+mkdir -p "$LOG_DIR"
+
+# Main log file for this run
+MAIN_LOG="$LOG_DIR/sync_all_$(date +%Y%m%d_%H%M%S).log"
+
+echo "Starting sync of all enabled folders..." | tee "$MAIN_LOG"
+echo "Log file: $MAIN_LOG" | tee -a "$MAIN_LOG"
+echo "" | tee -a "$MAIN_LOG"
+
+# Parse enabled sync pairs from config
+ENABLED_PAIRS=$(jq -r '.sync_pairs[] | select(.enabled == true) | .name' "$CONFIG_FILE")
+
+if [[ -z "$ENABLED_PAIRS" ]]; then
+    echo "No enabled sync pairs found in configuration" | tee -a "$MAIN_LOG"
+    exit 0
+fi
+
+# Count total pairs
+TOTAL_PAIRS=$(echo "$ENABLED_PAIRS" | wc -l | tr -d ' ')
+CURRENT=0
+FAILED=0
+SUCCEEDED=0
+
+echo "Found $TOTAL_PAIRS enabled sync pair(s)" | tee -a "$MAIN_LOG"
+echo "" | tee -a "$MAIN_LOG"
+
+# Process each enabled sync pair
+while IFS= read -r PAIR_NAME; do
+    CURRENT=$((CURRENT + 1))
+    echo "[$CURRENT/$TOTAL_PAIRS] Syncing: $PAIR_NAME" | tee -a "$MAIN_LOG"
+    
+    # Get sync pair details
+    LOCAL_PATH=$(jq -r ".sync_pairs[] | select(.name == \"$PAIR_NAME\") | .local_path" "$CONFIG_FILE")
+    REMOTE_NAME=$(jq -r ".sync_pairs[] | select(.name == \"$PAIR_NAME\") | .remote_name" "$CONFIG_FILE")
+    REMOTE_PATH=$(jq -r ".sync_pairs[] | select(.name == \"$PAIR_NAME\") | .remote_path" "$CONFIG_FILE")
+    DIRECTION=$(jq -r ".sync_pairs[] | select(.name == \"$PAIR_NAME\") | .direction" "$CONFIG_FILE")
+    
+    echo "  Local:  $LOCAL_PATH" | tee -a "$MAIN_LOG"
+    echo "  Remote: $REMOTE_NAME:$REMOTE_PATH" | tee -a "$MAIN_LOG"
+    echo "  Direction: $DIRECTION" | tee -a "$MAIN_LOG"
+    
+    # Validate local path exists
+    if [[ ! -d "$LOCAL_PATH" ]]; then
+        echo "  ✗ Error: Local path does not exist: $LOCAL_PATH" | tee -a "$MAIN_LOG"
+        FAILED=$((FAILED + 1))
+        echo "" | tee -a "$MAIN_LOG"
+        continue
+    fi
+    
+    # Build log file path for this sync
+    PAIR_LOG="$LOG_DIR/sync_${PAIR_NAME}_$(date +%Y%m%d_%H%M%S).log"
+    
+    # Build rclone command based on direction
+    RCLONE_FLAGS="--config {{.HomeDir}}/.config/rclone/rclone.conf --fast-list -v"
+    
+    if [[ -n "$DRY_RUN_FLAG" ]]; then
+        RCLONE_FLAGS="$RCLONE_FLAGS $DRY_RUN_FLAG"
+    fi
+    
+    # Execute sync based on direction
+    case "$DIRECTION" in
+        "upload")
+            echo "  Syncing local → remote..." | tee -a "$MAIN_LOG"
+            $RCLONE_PATH sync "$LOCAL_PATH" "$REMOTE_NAME:$REMOTE_PATH" $RCLONE_FLAGS >> "$PAIR_LOG" 2>&1
+            EXIT_CODE=$?
+            ;;
+        "download")
+            echo "  Syncing remote → local..." | tee -a "$MAIN_LOG"
+            $RCLONE_PATH sync "$REMOTE_NAME:$REMOTE_PATH" "$LOCAL_PATH" $RCLONE_FLAGS >> "$PAIR_LOG" 2>&1
+            EXIT_CODE=$?
+            ;;
+        "bidirectional")
+            echo "  Syncing bidirectional (upload then download)..." | tee -a "$MAIN_LOG"
+            $RCLONE_PATH sync "$LOCAL_PATH" "$REMOTE_NAME:$REMOTE_PATH" $RCLONE_FLAGS >> "$PAIR_LOG" 2>&1
+            UPLOAD_EXIT=$?
+            
+            if [[ $UPLOAD_EXIT -eq 0 ]]; then
+                $RCLONE_PATH sync "$REMOTE_NAME:$REMOTE_PATH" "$LOCAL_PATH" $RCLONE_FLAGS >> "$PAIR_LOG" 2>&1
+                EXIT_CODE=$?
+            else
+                EXIT_CODE=$UPLOAD_EXIT
+            fi
+            ;;
+        *)
+            echo "  ✗ Error: Invalid sync direction: $DIRECTION" | tee -a "$MAIN_LOG"
+            FAILED=$((FAILED + 1))
+            echo "" | tee -a "$MAIN_LOG"
+            continue
+            ;;
+    esac
+    
+    # Check result
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        echo "  ✓ Sync completed successfully" | tee -a "$MAIN_LOG"
+        SUCCEEDED=$((SUCCEEDED + 1))
+    else
+        echo "  ✗ Sync failed with exit code: $EXIT_CODE" | tee -a "$MAIN_LOG"
+        echo "  See log: $PAIR_LOG" | tee -a "$MAIN_LOG"
+        FAILED=$((FAILED + 1))
+    fi
+    
+    echo "" | tee -a "$MAIN_LOG"
+done <<< "$ENABLED_PAIRS"
+
+# Summary
+echo "========================================" | tee -a "$MAIN_LOG"
+echo "Sync Summary:" | tee -a "$MAIN_LOG"
+echo "  Total:     $TOTAL_PAIRS" | tee -a "$MAIN_LOG"
+echo "  Succeeded: $SUCCEEDED" | tee -a "$MAIN_LOG"
+echo "  Failed:    $FAILED" | tee -a "$MAIN_LOG"
+echo "========================================" | tee -a "$MAIN_LOG"
+
+if [[ $FAILED -gt 0 ]]; then
+    exit 1
+else
+    exit 0
+fi
