@@ -14,12 +14,11 @@ var (
 )
 
 func main() {
-	// Initialize the Bubbletea program
+	// Initialize the Bubbletea program with inline rendering
+	// This forces full repaints and avoids partial screen updates
 	p := tea.NewProgram(
 		ui.NewModel(),
-		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(), // Enable mouse support for scrolling
-		tea.WithFPS(30),           // Force more frequent repaints to avoid partial updates
 	)
 
 	// Run the program
