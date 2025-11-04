@@ -418,7 +418,29 @@ func (i *Installer) UpdateRcloneWithOutput() (string, error) {
 	return string(output), nil
 }
 
+// GetRcloneConfigCmd returns a function that runs the interactive rclone config wizard
+// This is designed to work with tea.Exec for proper terminal handling in Bubbletea
+func (i *Installer) GetRcloneConfigCmd() func() error {
+	return func() error {
+		if !i.CheckRcloneInstalled() {
+			return fmt.Errorf("rclone is not installed")
+		}
+
+		cmd := i.executor.Command("rclone", "config")
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := i.executor.RunCommand(cmd); err != nil {
+			return fmt.Errorf("failed to run rclone config: %w", err)
+		}
+
+		return nil
+	}
+}
+
 // RunRcloneConfig runs the interactive rclone config wizard
+// Deprecated: Use GetRcloneConfigCmd with tea.Exec instead for better terminal handling
 func (i *Installer) RunRcloneConfig() (string, error) {
 	if !i.CheckRcloneInstalled() {
 		return "", fmt.Errorf("rclone is not installed")

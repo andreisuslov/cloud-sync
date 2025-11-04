@@ -9,12 +9,12 @@ import (
 )
 
 func TestInstallationPostMenu(t *testing.T) {
-	// Create installation model
-	model := views.NewInstallationModel()
+	// Create configuration setup model
+	model := views.NewConfigurationSetupModel()
 	
 	// Simulate window size
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	model = updatedModel.(views.InstallationModel)
+	model = updatedModel.(views.ConfigurationSetupModel)
 	
 	// Test that model initializes correctly
 	if model.Init() == nil {
@@ -23,9 +23,9 @@ func TestInstallationPostMenu(t *testing.T) {
 }
 
 func TestInstallationMenuNavigation(t *testing.T) {
-	model := views.NewInstallationModel()
+	model := views.NewConfigurationSetupModel()
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	model = updatedModel.(views.InstallationModel)
+	model = updatedModel.(views.ConfigurationSetupModel)
 	
 	// Test view rendering doesn't panic
 	view := model.View()
@@ -35,16 +35,15 @@ func TestInstallationMenuNavigation(t *testing.T) {
 }
 
 func TestMainInstallationMenu(t *testing.T) {
-	model := views.NewInstallationModel()
+	model := views.NewConfigurationSetupModel()
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
-	model = updatedModel.(views.InstallationModel)
+	model = updatedModel.(views.ConfigurationSetupModel)
 	
-	// Test main menu rendering - should be empty now
+	// Test main menu rendering
 	view := model.View()
-	if !strings.Contains(view, "Installation Menu") {
-		t.Error("Main menu should display 'Installation Menu'")
+	if !strings.Contains(view, "Configuration") {
+		t.Error("Main menu should display 'Configuration'")
 	}
-	// Installation menu is now empty - no items to check
 }
 
 func TestLocationTypeSelection(t *testing.T) {
@@ -64,9 +63,9 @@ func TestBackNavigation(t *testing.T) {
 }
 
 func TestConfigsViewRendering(t *testing.T) {
-	model := views.NewInstallationModel()
+	model := views.NewConfigurationSetupModel()
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	model = updatedModel.(views.InstallationModel)
+	model = updatedModel.(views.ConfigurationSetupModel)
 	
 	// Test that view renders without errors
 	view := model.View()

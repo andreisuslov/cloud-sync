@@ -452,7 +452,7 @@ func (m ConfigurationSetupModel) installOrUpdateRclone(item InstallationItem) in
 }
 
 // manageRemotes opens the rclone config interactive wizard
-func (m ConfigurationSetupModel) manageRemotes(item InstallationItem) installStepCompleteMsg {
+func (m ConfigurationSetupModel) manageRemotes(item InstallationItem) tea.Msg {
 	if !m.installer.CheckRcloneInstalled() {
 		return installStepCompleteMsg{
 			step:    item.title,
@@ -462,23 +462,23 @@ func (m ConfigurationSetupModel) manageRemotes(item InstallationItem) installSte
 		}
 	}
 
-	output, err := m.installer.RunRcloneConfig()
-	if err != nil {
+	// Return a tea.Exec command to run rclone config interactively
+	// This will suspend the Bubbletea program and give control to rclone
+	return tea.Exec(m.installer.GetRcloneConfigCmd(), func(err error) tea.Msg {
+		if err != nil {
+			return installStepCompleteMsg{
+				step:    item.title,
+				success: false,
+				err:     err,
+				message: fmt.Sprintf("✗ Failed to run rclone config: %v", err),
+			}
+		}
 		return installStepCompleteMsg{
 			step:    item.title,
-			success: false,
-			err:     err,
-			message: fmt.Sprintf("✗ Failed to run rclone config: %v", err),
-			output:  output,
+			success: true,
+			message: "✓ rclone config completed successfully",
 		}
-	}
-
-	return installStepCompleteMsg{
-		step:    item.title,
-		success: true,
-		message: "✓ rclone config completed",
-		output:  output,
-	}
+	})
 }
 
 // listRemotes lists all configured rclone remotes

@@ -304,10 +304,10 @@ func (m Model) handleMenuSelection() (tea.Model, tea.Cmd) {
 	switch {
 	case strings.HasPrefix(title, "1."):
 		m.State = StateInstallation
-		// Initialize installation wizard
-		installModel := views.NewInstallationModel()
-		m.ActiveSubView = installModel
-		return m, installModel.Init()
+		// Initialize configuration setup wizard
+		configModel := views.NewConfigurationSetupModel()
+		m.ActiveSubView = configModel
+		return m, configModel.Init()
 	case strings.HasPrefix(title, "2."):
 		m.State = StateHelp
 		// Initialize help viewport with content
