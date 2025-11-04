@@ -78,24 +78,27 @@ cd cloud-sync
 make install
 ```
 
-**Important:** After installation, you need to add `~/.local/bin` to your PATH:
+**Important:** After installation, add `~/.local/bin` to your PATH (one-time setup):
 
 ```bash
 # For zsh (default on macOS)
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
 
 # For bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
-source ~/.bash_profile
 
-# Verify installation
+# IMPORTANT: Open a NEW terminal window or tab
+# (source ~/.zshrc may not work in all cases)
+
+# In the new terminal, verify installation:
 which csync
 # Should output: /Users/yourusername/.local/bin/csync
 
 # Now you can run from anywhere
 csync
 ```
+
+> **Tip:** If `csync` still doesn't work after adding to PATH, close your current terminal and open a fresh one.
 
 #### Option 2: Build and run locally
 
@@ -269,28 +272,43 @@ We follow conventional commits:
 
 ### `csync` command not found after installation
 
-If you get "command not found" after running `make install`, you need to add `~/.local/bin` to your PATH:
+If you get "command not found" after running `make install`:
 
+**Step 1:** Verify the binary was installed:
 ```bash
-# Check if the binary exists
 ls -la ~/.local/bin/csync
-
-# Add to PATH for zsh (default on macOS)
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-# Or for bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
-source ~/.bash_profile
-
-# Verify it's in your PATH
-which csync
-echo $PATH | grep ".local/bin"
-
-# If still not working, restart your terminal
+# Should show the csync executable
 ```
 
-**Note:** You only need to add the PATH once. After that, `csync` will work in all new terminal sessions.
+**Step 2:** Check if `~/.local/bin` is in your PATH:
+```bash
+echo $PATH | grep ".local/bin"
+```
+
+**Step 3:** If not in PATH, add it:
+```bash
+# For zsh (default on macOS)
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+
+# For bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+```
+
+**Step 4:** **CRITICAL** - Open a completely new terminal window/tab:
+- Don't use `source ~/.zshrc` in the same terminal
+- Close the current terminal and open a fresh one
+- This ensures the PATH is properly loaded
+
+**Step 5:** Verify in the new terminal:
+```bash
+which csync
+# Should output: /Users/yourusername/.local/bin/csync
+
+csync
+# Should launch the application
+```
+
+**Note:** You only need to add the PATH export once. After that, `csync` will work in all new terminal sessions.
 
 ### Backup doesn't run automatically
 
