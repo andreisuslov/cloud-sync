@@ -76,10 +76,22 @@ cd cloud-sync
 
 # Install the csync command
 make install
+```
 
-# Add ~/.local/bin to your PATH if not already there
+**Important:** After installation, you need to add `~/.local/bin` to your PATH:
+
+```bash
+# For zsh (default on macOS)
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
+
+# For bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+source ~/.bash_profile
+
+# Verify installation
+which csync
+# Should output: /Users/yourusername/.local/bin/csync
 
 # Now you can run from anywhere
 csync
@@ -254,6 +266,31 @@ We follow conventional commits:
 - `chore:` Maintenance tasks
 
 ## 🐛 Troubleshooting
+
+### `csync` command not found after installation
+
+If you get "command not found" after running `make install`, you need to add `~/.local/bin` to your PATH:
+
+```bash
+# Check if the binary exists
+ls -la ~/.local/bin/csync
+
+# Add to PATH for zsh (default on macOS)
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Or for bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+source ~/.bash_profile
+
+# Verify it's in your PATH
+which csync
+echo $PATH | grep ".local/bin"
+
+# If still not working, restart your terminal
+```
+
+**Note:** You only need to add the PATH once. After that, `csync` will work in all new terminal sessions.
 
 ### Backup doesn't run automatically
 
