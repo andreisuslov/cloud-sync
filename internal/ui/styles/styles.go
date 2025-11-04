@@ -107,6 +107,12 @@ var (
 	// Muted style
 	MutedStyle = lipgloss.NewStyle().
 			Foreground(MutedColor)
+	
+	// Input field styles
+	FocusedStyle = lipgloss.NewStyle().
+			Foreground(PrimaryColor)
+	
+	NoStyle = lipgloss.NewStyle()
 )
 
 // RenderTitle renders a styled title
