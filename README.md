@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://golang.org/)
 
- A beautiful terminal-based GUI application built with [Bubbletea](https://github.com/charmbracelet/bubbletea) for managing automated cloud-to-cloud backups from Backblaze B2 to Scaleway Object Storage.
+ A beautiful terminal-based GUI application built with [Bubbletea](https://github.com/charmbracelet/bubbletea) for managing automated cloud-to-cloud backups between any rclone-supported cloud storage providers.
 
 ## ✨ Features
 
@@ -58,8 +58,9 @@ Plus additional helper scripts:
 - **macOS**: 10.15 (Catalina) or later
 - **Architecture**: Intel (x86_64) or Apple Silicon (arm64)
 - **Cloud Storage**:
-  - Backblaze B2 account with API credentials
-  - Scaleway Object Storage account with access keys
+  - Two cloud storage accounts (source and destination)
+  - Supported providers: AWS S3, Backblaze B2, Google Cloud Storage, Scaleway, DigitalOcean Spaces, Azure Blob Storage, Wasabi, and [many more](https://rclone.org/#providers)
+  - API credentials/access keys for your chosen providers
 - **Network**: Internet connection for cloud sync
 
 ## 🚀 Quick Start
@@ -83,9 +84,9 @@ go build -o cloud-sync ./cmd/cloud-sync
 1. **Launch the app**: Run `./cloud-sync`
 2. **Installation Wizard**: Follow prompts to install Homebrew and rclone
 3. **Configure Remotes**:
-   - Enter Backblaze B2 credentials (keyID, applicationKey)
-   - Enter Scaleway credentials (access key, secret key)
-4. **Select Buckets**: Choose source and destination buckets
+   - Configure source remote using `rclone config` (any supported provider)
+   - Configure destination remote using `rclone config` (any supported provider)
+4. **Select Buckets**: Choose source and destination buckets/containers
 5. **Generate Scripts**: App creates all scripts in `~/bin`
 6. **Setup Automation**: LaunchAgent configured for monthly backups
 7. **Done!** Your backups are now automated
@@ -240,9 +241,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [Charm Bubbletea](https://github.com/charmbracelet/bubbletea) - Fantastic TUI framework
-- [rclone](https://rclone.org/) - Powerful cloud sync tool
-- [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) - Primary backup storage
-- [Scaleway](https://www.scaleway.com/en/object-storage/) - Secondary backup storage
+- [rclone](https://rclone.org/) - Powerful cloud sync tool supporting 70+ cloud storage providers
 
 ## 📞 Support
 
