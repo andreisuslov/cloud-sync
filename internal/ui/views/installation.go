@@ -10,6 +10,57 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Style definitions using lipgloss
+var (
+	// Color palette
+	colorPrimary   = lipgloss.Color("62")
+	colorSecondary = lipgloss.Color("241")
+	colorSuccess   = lipgloss.Color("42")
+	colorWarning   = lipgloss.Color("214")
+	colorError     = lipgloss.Color("196")
+	colorMuted     = lipgloss.Color("243")
+	colorWhite     = lipgloss.Color("255")
+
+	// Base styles
+	baseStyle = lipgloss.NewStyle().
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorPrimary)
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(colorSecondary).
+			MarginTop(1)
+
+	statusStyle = lipgloss.NewStyle().
+			Padding(1, 0).
+			MarginTop(1)
+
+	successStatusStyle = statusStyle.Copy().
+				Foreground(colorSuccess)
+
+	warningStatusStyle = statusStyle.Copy().
+				Foreground(colorWarning)
+
+	errorStatusStyle = statusStyle.Copy().
+				Foreground(colorError)
+
+	// Status icon styles
+	pendingStyle = lipgloss.NewStyle().
+			Foreground(colorSecondary)
+
+	inProgressStyle = lipgloss.NewStyle().
+			Foreground(colorWarning)
+
+	completeStyle = lipgloss.NewStyle().
+			Foreground(colorSuccess)
+
+	failedStyle = lipgloss.NewStyle().
+			Foreground(colorError)
+
+	skippedStyle = lipgloss.NewStyle().
+			Foreground(colorMuted)
+)
+
 // InstallationItem represents an installation step
 type InstallationItem struct {
 	title       string
@@ -189,24 +240,23 @@ func (m InstallationModel) View() string {
 		return "Installation cancelled.\n"
 	}
 
-	style := lipgloss.NewStyle().
-		Padding(1, 2).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62"))
-
-	helpText := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render("\n↑/↓ or j/k: navigate (wrap-around) • enter: execute step • q: quit")
+	helpText := helpStyle.Render("\n↑/↓ or j/k: navigate (wrap-around) • enter: execute step • q: quit")
 
 	statusText := ""
 	if m.statusMsg != "" {
-		statusStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("214")).
-			Padding(1, 0)
-		statusText = statusStyle.Render("\n" + m.statusMsg)
+		// Determine which status style to use based on message content
+		var msgStyle lipgloss.Style
+		if strings.HasPrefix(m.statusMsg, "✓") {
+			msgStyle = successStatusStyle
+		} else if strings.HasPrefix(m.statusMsg, "✗") {
+			msgStyle = errorStatusStyle
+		} else {
+			msgStyle = warningStatusStyle
+		}
+		statusText = msgStyle.Render("\n" + m.statusMsg)
 	}
 
-	return style.Render(m.list.View() + helpText + statusText)
+	return baseStyle.Render(m.list.View() + helpText + statusText)
 }
 
 // executeStep executes a specific installation step
@@ -390,28 +440,27 @@ func GetStatusIcon(status InstallStatus) string {
 	}
 }
 
-// GetStatusColor returns a color for the given status
-func GetStatusColor(status InstallStatus) lipgloss.Color {
+// GetStatusStyle returns a lipgloss style for the given status
+func GetStatusStyle(status InstallStatus) lipgloss.Style {
 	switch status {
 	case StatusPending:
-		return lipgloss.Color("241")
+		return pendingStyle
 	case StatusInProgress:
-		return lipgloss.Color("214")
+		return inProgressStyle
 	case StatusComplete:
-		return lipgloss.Color("42")
+		return completeStyle
 	case StatusFailed:
-		return lipgloss.Color("196")
+		return failedStyle
 	case StatusSkipped:
-		return lipgloss.Color("243")
+		return skippedStyle
 	default:
-		return lipgloss.Color("255")
+		return lipgloss.NewStyle().Foreground(colorWhite)
 	}
 }
 
 // FormatStepWithStatus formats a step title with its status
 func FormatStepWithStatus(title string, status InstallStatus) string {
 	icon := GetStatusIcon(status)
-	color := GetStatusColor(status)
-	style := lipgloss.NewStyle().Foreground(color)
+	style := GetStatusStyle(status)
 	return fmt.Sprintf("%s %s", style.Render(icon), title)
 }
