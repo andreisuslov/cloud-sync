@@ -60,8 +60,10 @@ func TestLocationTypeSelection(t *testing.T) {
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	model = updatedModel.(views.InstallationModel)
 	
-	// Navigate to location type selection
-	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	// Navigate down to "Set up a new location" and select it
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updatedModel.(views.InstallationModel)
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updatedModel.(views.InstallationModel)
 	
 	// Test location type selection rendering
@@ -82,12 +84,16 @@ func TestRemoteLocationSelection(t *testing.T) {
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	model = updatedModel.(views.InstallationModel)
 	
-	// Navigate to location type selection
-	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	// Navigate to "Set up a new location" and select it
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updatedModel.(views.InstallationModel)
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updatedModel.(views.InstallationModel)
 	
-	// Navigate to remote location selection
-	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	// Navigate to "Remote storage" and select it
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updatedModel.(views.InstallationModel)
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updatedModel.(views.InstallationModel)
 	
 	// Test remote location selection rendering
@@ -108,8 +114,12 @@ func TestViewExistingLocations(t *testing.T) {
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	model = updatedModel.(views.InstallationModel)
 	
-	// Navigate to view existing locations
-	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	// Navigate to "View existing locations" and select it
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updatedModel.(views.InstallationModel)
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updatedModel.(views.InstallationModel)
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updatedModel.(views.InstallationModel)
 	
 	// Test existing locations view rendering
@@ -130,8 +140,10 @@ func TestBackNavigation(t *testing.T) {
 	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	model = updatedModel.(views.InstallationModel)
 	
-	// Navigate to location type selection
-	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	// Navigate to "Set up a new location" and select it
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updatedModel.(views.InstallationModel)
+	updatedModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updatedModel.(views.InstallationModel)
 	
 	// Navigate back with 'q'
