@@ -85,8 +85,8 @@ type InstallationModel struct {
 // ConfigurationModel represents the configuration wizard state
 type ConfigurationModel struct {
 	Step            int
-	B2Remote        RemoteConfig
-	ScalewayRemote  RemoteConfig
+	SourceRemote    RemoteConfig
+	DestRemote      RemoteConfig
 	SourceBucket    string
 	DestBucket      string
 	Complete        bool
