@@ -17,6 +17,8 @@
 ### 💾 Backup Operations
 - **Manual sync**: Run on-demand backups with live progress
 - **Automated monthly backups**: Set-and-forget monthly cloud sync
+- **Local folder sync**: Sync local folders with cloud storage (upload/download/bidirectional)
+- **Multiple sync pairs**: Configure multiple local-to-remote sync pairs
 - **Duplicate prevention**: Smart monthly check prevents redundant syncs
 - **Lockfile protection**: Prevents simultaneous backup operations
 - **Progress tracking**: Real-time transfer speed and file count
@@ -143,6 +145,7 @@ csync
 ## 📖 Documentation
 
 - **[Project Plan](project-plan.md)**: Detailed implementation roadmap
+- **[Local Folder Sync Guide](docs/LOCAL_FOLDER_SYNC.md)**: Configure and sync local folders with cloud storage
 - **[Original Backup Guide](https://github.com/yourusername/cloud-sync/docs/backup.md)**: Manual setup instructions
 - **[Architecture](docs/architecture.md)**: System design and modules *(coming soon)*
 - **[API Reference](docs/api.md)**: Developer documentation *(coming soon)*
@@ -195,6 +198,7 @@ cloud-sync/
 │   ├── launchd/             # LaunchAgent management
 │   ├── logs/                # Log parsing and viewing
 │   ├── lockfile/            # Lockfile management
+│   ├── syncconfig/          # Local folder sync configuration
 │   └── ui/                  # Bubbletea TUI components
 ├── pkg/
 │   └── backup/              # Public API for backup operations
@@ -202,6 +206,7 @@ cloud-sync/
 │   ├── unit/               # Unit tests
 │   └── integration/        # Integration tests
 ├── scripts/                # Script templates
+├── docs/                   # Documentation
 ├── go.mod
 ├── go.sum
 ├── README.md               # This file
@@ -368,6 +373,7 @@ See [project-plan.md](project-plan.md) for the complete implementation roadmap.
 - ✅ Core backup functionality
 - ✅ LaunchAgent automation
 - ✅ Log viewer
+- ✅ Local folder sync
 - 🚧 Multi-profile support
 - 🚧 Email notifications
 - 📋 Backup verification
