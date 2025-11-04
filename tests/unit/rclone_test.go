@@ -98,13 +98,13 @@ func TestParseConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "rclone.conf")
 
-	// Create a sample config file
-	configContent := `[b2-remote]
+	// Create a sample config file with example remotes
+	configContent := `[source-remote]
 type = b2
 account = test-account-id
 key = test-key
 
-[scaleway-remote]
+[dest-remote]
 type = s3
 provider = Scaleway
 access_key_id = test-access-key
