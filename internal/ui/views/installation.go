@@ -382,27 +382,28 @@ func (m InstallationModel) View() string {
 		return m.activeSubView.View()
 	}
 
-	helper := NewViewHelper(m.width, m.height)
 	var b strings.Builder
 
-	// For list-based menus, render them directly without header/box
+	// For list-based menus, render exactly like main menu - just list and help
 	if m.currentStep == StepMainInstallMenu || m.currentStep == StepLocationTypeSelection || m.currentStep == StepConfigureRemoteLocation {
 		b.WriteString("\n")
 		b.WriteString(m.renderCurrentStep())
 		b.WriteString("\n\n")
 		
-		// Render footer based on current step
+		// Render help text based on current step
 		switch m.currentStep {
 		case StepMainInstallMenu:
-			b.WriteString(helper.RenderFooter("↑/↓: Navigate • Enter: Select • q: Exit"))
+			b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Exit"))
 		case StepLocationTypeSelection:
-			b.WriteString(helper.RenderFooter("↑/↓: Navigate • Enter: Select • q: Back"))
+			b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Back"))
 		case StepConfigureRemoteLocation:
-			b.WriteString(helper.RenderFooter("↑/↓: Navigate • Enter: Select • q: Back"))
+			b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Back"))
 		}
 		
 		return b.String()
 	}
+
+	helper := NewViewHelper(m.width, m.height)
 
 	b.WriteString(helper.RenderHeader("Installation Wizard", "Setting up required tools"))
 
