@@ -36,7 +36,7 @@ func TestInstallationMenuNavigation(t *testing.T) {
 
 func TestMainInstallationMenu(t *testing.T) {
 	model := views.NewInstallationModel()
-	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
 	model = updatedModel.(views.InstallationModel)
 	
 	// Test main menu rendering

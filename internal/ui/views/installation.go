@@ -194,17 +194,14 @@ func NewInstallationModel() InstallationModel {
 	mainMenuList := list.New(mainMenuItems, list.NewDefaultDelegate(), 0, 0)
 	mainMenuList.Title = "Installation Menu"
 	mainMenuList.Styles.Title = styles.TitleStyle
-	mainMenuList.SetShowHelp(false)
 
 	locationTypeList := list.New(locationTypeItems, list.NewDefaultDelegate(), 0, 0)
 	locationTypeList.Title = "Set Up a New Location"
 	locationTypeList.Styles.Title = styles.TitleStyle
-	locationTypeList.SetShowHelp(false)
 
 	remoteTypeList := list.New(remoteTypeItems, list.NewDefaultDelegate(), 0, 0)
 	remoteTypeList.Title = "Configure Remote Storage"
 	remoteTypeList.Styles.Title = styles.TitleStyle
-	remoteTypeList.SetShowHelp(false)
 
 	return InstallationModel{
 		installer:        installer.NewInstaller(),
@@ -384,21 +381,11 @@ func (m InstallationModel) View() string {
 
 	var b strings.Builder
 
-	// For list-based menus, render exactly like main menu - just list and help
+	// For list-based menus, render exactly like main menu - just list
 	if m.currentStep == StepMainInstallMenu || m.currentStep == StepLocationTypeSelection || m.currentStep == StepConfigureRemoteLocation {
 		b.WriteString("\n")
 		b.WriteString(m.renderCurrentStep())
 		b.WriteString("\n\n")
-		
-		// Render help text based on current step
-		switch m.currentStep {
-		case StepMainInstallMenu:
-			b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Exit"))
-		case StepLocationTypeSelection:
-			b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Back"))
-		case StepConfigureRemoteLocation:
-			b.WriteString(styles.RenderHelp("↑/↓: Navigate • Enter: Select • q: Back"))
-		}
 		
 		return b.String()
 	}
